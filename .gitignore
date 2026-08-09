@@ -11,6 +11,9 @@ next-env.d.ts
 # production
 /build
 
+# desktop build output (.app / .dmg)
+/dist
+
 # misc
 .DS_Store
 *.pem

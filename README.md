@@ -46,6 +46,46 @@ This is a standard Next.js app, so Vercel auto-detects everything.
 > The API key is stored in Vercel's encrypted env vars and is only read
 > server-side in the `/api/extract` route — it is never exposed to the browser.
 
+## Desktop app (macOS)
+
+The same Next.js server, hosted inside an Electron app instead of on Vercel. It
+binds to `127.0.0.1` on a random free port and the window is a plain browser
+view onto that origin — so `/api/extract` and the Supabase routes keep running
+server-side, and the keys never reach the renderer.
+
+```bash
+npm run desktop:dev      # next dev + Electron window, hot reload
+npm run desktop:build    # -> dist/Asset Manager-<version>-arm64.dmg
+```
+
+### Credentials
+
+There are no env vars in a packaged app, so the keys live in a JSON file written
+`0600` (readable only by your user account):
+
+```
+~/Library/Application Support/Asset Manager/config.json
+```
+
+Open **Asset Manager → Settings… (⌘,)** to edit them. First launch opens Settings
+automatically. The Next server reads these through `process.env` exactly as it
+does on Vercel, so no application code knows the desktop build exists — which
+also means **the app must be restarted after changing a key**.
+
+### Build notes
+
+- `next.config.mjs` sets `output: "standalone"` so `next build` emits a
+  self-contained `server.js`. Vercel ignores this, so the web deploy is unaffected.
+- `electron/after-pack.js` copies `.next/standalone/node_modules` into the bundle.
+  This is not optional: electron-builder silently drops any `node_modules` from
+  `extraResources`, and without the hook the app launches and immediately dies
+  with `Cannot find module 'next'`.
+- The build is **unsigned** (`identity: null`). Fine for running locally; to share
+  the `.dmg` with anyone else you need a Developer ID plus notarization, otherwise
+  Gatekeeper will block it on their machine.
+- The app uses the default Electron icon — drop an `icon.icns` in `build/` to
+  replace it.
+
 ## Project structure
 
 ```

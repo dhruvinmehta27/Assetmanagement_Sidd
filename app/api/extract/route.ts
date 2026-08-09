@@ -28,8 +28,10 @@ export async function POST(req: NextRequest) {
   if (!apiKey) {
     return NextResponse.json(
       {
+        // Kept environment-neutral: the same route serves the web deploy (key
+        // from Vercel env vars) and the desktop app (key from Settings).
         error:
-          "ANTHROPIC_API_KEY is not set. Copy .env.example to .env.local and add your key, then restart the dev server.",
+          "ANTHROPIC_API_KEY is not set. Add your Anthropic API key to the app's configuration, then restart the app.",
       },
       { status: 500 }
     );
