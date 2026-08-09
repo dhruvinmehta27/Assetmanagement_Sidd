@@ -12,8 +12,11 @@ let cached: SupabaseClient | null = null;
 export function getSupabase(): SupabaseClient {
   if (cached) return cached;
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // Trim whitespace and any trailing slash: a trailing "/" makes the client
+  // build "https://xxx.supabase.co//rest/v1/..." which Supabase rejects with
+  // "Invalid path specified in request URL".
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim().replace(/\/+$/, "");
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 
   if (!url || !serviceKey) {
     throw new Error(
