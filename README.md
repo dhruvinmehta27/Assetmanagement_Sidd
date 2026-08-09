@@ -72,19 +72,42 @@ automatically. The Next server reads these through `process.env` exactly as it
 does on Vercel, so no application code knows the desktop build exists — which
 also means **the app must be restarted after changing a key**.
 
+### Two build flavours
+
+`next.config.mjs` branches on `DESKTOP_BUILD`:
+
+| | command | config applied |
+|---|---|---|
+| web | `next build` | none — identical to before the desktop work |
+| desktop | `DESKTOP_BUILD=1 next build` | `output: "standalone"`, images unoptimized, sharp excluded |
+
+The gate is deliberate. `output: "standalone"` is **not** inert on the web side —
+it breaks `next start` — so applying it unconditionally would change how the app
+is served outside Electron.
+
 ### Build notes
 
-- `next.config.mjs` sets `output: "standalone"` so `next build` emits a
-  self-contained `server.js`. Vercel ignores this, so the web deploy is unaffected.
 - `electron/after-pack.js` copies `.next/standalone/node_modules` into the bundle.
   This is not optional: electron-builder silently drops any `node_modules` from
   `extraResources`, and without the hook the app launches and immediately dies
   with `Cannot find module 'next'`.
+- `sharp` is excluded via `outputFileTracingExcludes`. The app renders no images,
+  so the optimizer never runs; this saves ~19 MB and leaves the bundle with **no
+  platform-specific binaries** — which is what makes a Windows build feasible.
+  Setting `images: { unoptimized: true }` alone does *not* stop the tracer.
 - The build is **unsigned** (`identity: null`). Fine for running locally; to share
   the `.dmg` with anyone else you need a Developer ID plus notarization, otherwise
   Gatekeeper will block it on their machine.
 - The app uses the default Electron icon — drop an `icon.icns` in `build/` to
   replace it.
+
+### Windows (not yet done)
+
+The bundle is now free of native binaries, so the remaining work is: add an NSIS
+target to the `build.win` config, swap the `DESKTOP_BUILD=1` prefix for
+`cross-env` so the script runs on `cmd`, and build on Windows (or a CI matrix)
+rather than cross-building from macOS. `electron/after-pack.js` already resolves
+the non-macOS resources path.
 
 ## Project structure
 
