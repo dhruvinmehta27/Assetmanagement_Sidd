@@ -28,6 +28,24 @@ npm run dev                    # http://localhost:3000
   on the server (the API route), never exposed to the browser.
 - **Do not paste your key into chat or commit it.** If you ever do, rotate it.
 
+## Deploy to Vercel
+
+This is a standard Next.js app, so Vercel auto-detects everything.
+
+1. Go to https://vercel.com/new and **import** the GitHub repo
+   `dhruvinmehta27/Assetmanagement_Sidd`.
+2. Vercel uses the repo's **default branch** as the production deployment —
+   currently `claude/stock-asset-management-setup-tkxo2j` — so nothing needs
+   merging. (Framework: Next.js, Build: `next build` — both auto-detected.)
+3. Under **Settings → Environment Variables**, add:
+   - `ANTHROPIC_API_KEY` = your Anthropic key (set it for Production, and
+     Preview if you want preview deploys to work).
+   - optional `ANTHROPIC_MODEL` to override the extraction model.
+4. Deploy. Every push to the branch redeploys automatically.
+
+> The API key is stored in Vercel's encrypted env vars and is only read
+> server-side in the `/api/extract` route — it is never exposed to the browser.
+
 ## Project structure
 
 ```
