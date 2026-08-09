@@ -26,6 +26,29 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ApiResponse | null>(null);
+  const [saveState, setSaveState] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    if (!result) return;
+    setSaving(true);
+    setSaveState(null);
+    try {
+      const res = await fetch("/api/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: result.data, filename: result.meta.filename }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Save failed.");
+      if (json.duplicate) setSaveState("Already in your portfolio (skipped duplicate).");
+      else setSaveState(`Saved ✓ ${json.trades} trade(s) added to your portfolio.`);
+    } catch (err: any) {
+      setSaveState(`⚠️ ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -52,10 +75,14 @@ export default function Home() {
   return (
     <main className="container">
       <header className="header">
+        <nav className="nav">
+          <span className="nav-active">Upload</span>
+          <a href="/portfolio">Portfolio &amp; P&amp;L →</a>
+        </nav>
         <h1>Contract Note Extractor</h1>
         <p className="subtitle">
           Upload a broker contract note PDF — the app extracts every field it
-          can into structured data.
+          can into structured data, then saves it to your portfolio.
         </p>
       </header>
 
@@ -86,6 +113,16 @@ export default function Home() {
 
       {d && (
         <div className="results">
+          <div className="savebar card">
+            <button onClick={handleSave} disabled={saving} className="btn">
+              {saving ? "Saving…" : "Save to portfolio"}
+            </button>
+            {saveState && <span className="savestate">{saveState}</span>}
+            <a href="/portfolio" className="link-right">
+              View portfolio &amp; P&amp;L →
+            </a>
+          </div>
+
           <section className="card">
             <h2>Summary</h2>
             <div className="grid">
