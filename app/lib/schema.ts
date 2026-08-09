@@ -38,6 +38,8 @@ export interface Charges {
   cgst: number | null;
   sgst: number | null;
   igst: number | null;
+  demat_charges: number | null; // DP / "Dmt Chgs"
+  rounding: number | null; // rounding adjustment (positive = credit to client)
   other_charges: number | null;
   total_charges: number | null;
 }
@@ -128,6 +130,15 @@ export const CONTRACT_NOTE_TOOL = {
           cgst: { type: ["number", "null"] },
           sgst: { type: ["number", "null"] },
           igst: { type: ["number", "null"] },
+          demat_charges: {
+            type: ["number", "null"],
+            description: "DP / demat charges, e.g. a line labelled 'Dmt Chgs'.",
+          },
+          rounding: {
+            type: ["number", "null"],
+            description:
+              "Rounding adjustment. Positive if credited to the client (CR), negative if debited (DR).",
+          },
           other_charges: { type: ["number", "null"] },
           total_charges: { type: ["number", "null"] },
         },

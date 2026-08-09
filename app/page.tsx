@@ -180,6 +180,8 @@ export default function Home() {
               <Info label="CGST" value={money(d.charges?.cgst)} />
               <Info label="SGST" value={money(d.charges?.sgst)} />
               <Info label="IGST" value={money(d.charges?.igst)} />
+              <Info label="Demat / DP" value={money(d.charges?.demat_charges)} />
+              <Info label="Rounding" value={money(d.charges?.rounding)} />
               <Info label="Other" value={money(d.charges?.other_charges)} />
               <Info label="Total charges" value={money(d.charges?.total_charges)} />
             </div>
