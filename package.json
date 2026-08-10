@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "desktop:dev": "concurrently -k -n next,electron -c cyan,magenta \"next dev\" \"wait-on tcp:127.0.0.1:3000 && electron .\"",
+    "desktop:dev": "concurrently -k -n next,electron -c cyan,magenta \"DESKTOP_APP=1 next dev\" \"wait-on tcp:127.0.0.1:3000 && electron .\"",
     "desktop:build": "DESKTOP_BUILD=1 next build && electron-builder --mac"
   },
   "build": {

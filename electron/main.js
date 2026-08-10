@@ -92,6 +92,10 @@ async function startServer(envFromConfig) {
       // Without this, spawning Electron's binary launches a second GUI app
       // instead of running server.js as a Node script.
       ELECTRON_RUN_AS_NODE: "1",
+      // Unlocks the folder-import routes, which read and move files at a path
+      // the client supplies. Safe here because the server and the user are the
+      // same person on the same machine; it must stay off for any hosted deploy.
+      DESKTOP_APP: "1",
       NODE_ENV: "production",
       PORT: String(port),
       HOSTNAME: "127.0.0.1",
@@ -137,6 +141,10 @@ function createMainWindow() {
     backgroundColor: "#0b0f1a",
     show: false,
     webPreferences: {
+      // A minimal bridge for the native folder picker used by the importer.
+      // Everything else the window needs it gets over HTTP from the local
+      // server, so the sandbox stays on.
+      preload: path.join(__dirname, "main-preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -239,6 +247,20 @@ function buildMenu() {
 }
 
 // ---- IPC used by the Settings window ------------------------------------
+
+ipcMain.handle("dialog:pickFolder", async () => {
+  const result = await dialog.showOpenDialog(mainWindow ?? undefined, {
+    title: "Choose your contract notes folder",
+    message: "Pick the folder that holds (or will hold) your inbox/ folder.",
+    properties: ["openDirectory", "createDirectory"],
+    buttonLabel: "Use this folder",
+  });
+  return result.canceled ? null : result.filePaths[0];
+});
+
+ipcMain.handle("shell:reveal", (_event, target) => {
+  if (typeof target === "string" && target) shell.openPath(target);
+});
 
 ipcMain.handle("config:fields", () => config.FIELDS);
 ipcMain.handle("config:read", () => config.read(app));

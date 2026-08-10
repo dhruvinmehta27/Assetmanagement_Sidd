@@ -60,6 +60,7 @@ export default function PortfolioPage() {
       <header className="header">
         <nav className="nav">
           <a href="/">← Upload</a>
+          <a href="/import">Folder Import</a>
           <span className="nav-active">Portfolio &amp; P&amp;L</span>
         </nav>
         <h1>Portfolio &amp; P&amp;L</h1>

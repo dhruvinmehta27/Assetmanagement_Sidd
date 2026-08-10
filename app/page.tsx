@@ -77,6 +77,7 @@ export default function Home() {
       <header className="header">
         <nav className="nav">
           <span className="nav-active">Upload</span>
+          <a href="/import">Folder Import</a>
           <a href="/portfolio">Portfolio &amp; P&amp;L →</a>
         </nav>
         <h1>Contract Note Extractor</h1>

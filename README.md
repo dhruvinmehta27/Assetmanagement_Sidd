@@ -58,6 +58,47 @@ npm run desktop:dev      # next dev + Electron window, hot reload
 npm run desktop:build    # -> dist/Asset Manager-<version>-arm64.dmg
 ```
 
+### Folder import (bulk PDFs)
+
+Desktop only — a browser cannot read a folder off your disk. Open **Folder
+Import**, pick a root folder once, and the app creates this inside it:
+
+```
+ContractNotes/            <- the folder you pick
+├── inbox/                <- drop PDFs here, nested however you like
+├── imported/
+│   └── Zerodha/2025-26/CN-8842.pdf
+└── failed/
+    ├── CN-bad-scan.pdf
+    └── CN-bad-scan.error.txt
+```
+
+Every `.pdf` under `inbox/` is extracted, saved, and then **moved**: successes to
+`imported/<broker>/<financial-year>/`, failures to `failed/` with a sibling
+`.error.txt`. The destination comes from the *extracted* note, not the filename,
+so `download (3).pdf` still files correctly. Nothing is ever overwritten — a name
+clash becomes `CN-8842 (2).pdf`.
+
+Notes on behaviour:
+
+- **Duplicates are free and safe.** De-duplication is content-based, on
+  `(broker_name, contract_note_number, trade_date)` — the unique constraint in
+  `supabase/schema.sql`. A note already in the DB is reported as
+  `already imported` and filed, never saved twice. This means folder names carry
+  no meaning for the app; organise `inbox/` however suits you.
+- **Each PDF is one Claude API call**, billed to your key. The pre-flight scan
+  shows the count before anything runs, and progress streams live with a Stop
+  button — a 200-note batch is several minutes and real money.
+- Runs 3 files concurrently, to stay clear of rate limits.
+- Non-PDFs and dotfiles in `inbox/` are ignored.
+- To retry a failure, fix the file and move it back into `inbox/`.
+
+**Security:** `/api/import` and `/api/import/scan` take a filesystem path from the
+client and read and move files under it. That is safe on localhost, where the
+server and the user are the same person, but would be an arbitrary-path hole on a
+hosted deploy — so both routes require `DESKTOP_APP=1`, which only the Electron
+main process sets. On the web they return 403 and the page shows a notice instead.
+
 ### Credentials
 
 There are no env vars in a packaged app, so the keys live in a JSON file written
