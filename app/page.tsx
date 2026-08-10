@@ -77,12 +77,18 @@ export default function Home() {
       <header className="header">
         <nav className="nav">
           <span className="nav-active">Upload</span>
+          <a href="/import">Folder Import</a>
           <a href="/portfolio">Portfolio &amp; P&amp;L →</a>
         </nav>
         <h1>Contract Note Extractor</h1>
         <p className="subtitle">
           Upload a broker contract note PDF — the app extracts every field it
           can into structured data, then saves it to your portfolio.
+        </p>
+        <p className="footnote">
+          Got a backlog? <a href="/import">Folder Import</a> processes a whole
+          folder in one go — available in the desktop app, which can read PDFs
+          from your disk.
         </p>
       </header>
 

@@ -2,11 +2,31 @@
   "name": "stock-asset-management",
   "version": "0.1.0",
   "private": true,
+  "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "desktop:dev": "concurrently -k -n next,electron -c cyan,magenta \"DESKTOP_APP=1 next dev\" \"wait-on tcp:127.0.0.1:3000 && electron .\"",
+    "desktop:build": "DESKTOP_BUILD=1 next build && electron-builder --mac"
+  },
+  "build": {
+    "appId": "com.dhruvinmehta.assetmanager",
+    "productName": "Asset Manager",
+    "directories": { "output": "dist" },
+    "files": ["electron/**/*", "package.json"],
+    "afterPack": "./electron/after-pack.js",
+    "extraResources": [
+      { "from": ".next/standalone", "to": "standalone", "filter": ["**/*"] },
+      { "from": ".next/static", "to": "standalone/.next/static", "filter": ["**/*"] }
+    ],
+    "mac": {
+      "target": [{ "target": "dmg", "arch": ["arm64"] }],
+      "category": "public.app-category.finance",
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "identity": null
+    }
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",
@@ -19,6 +39,10 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "typescript": "^5"
+    "concurrently": "^10.0.4",
+    "electron": "^43.3.0",
+    "electron-builder": "^26.15.3",
+    "typescript": "^5",
+    "wait-on": "^9.1.0"
   }
 }

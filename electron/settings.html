@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- Local-only document: no remote loads, no inline eval. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'self'"
+    />
+    <title>Settings</title>
+    <style>
+      /* Mirrors app/globals.css so Settings does not look like a different app. */
+      :root {
+        --bg: #0b0f1a;
+        --panel: #131a2b;
+        --border: #263149;
+        --text: #e8edf7;
+        --muted: #8b98b3;
+        --accent: #4f8cff;
+        --green: #2ecc71;
+        --red: #ff5c7a;
+        --radius: 12px;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap { padding: 28px 30px 24px; }
+      h1 { font-size: 20px; margin: 0 0 6px; }
+      .sub { color: var(--muted); font-size: 13px; margin: 0 0 22px; line-height: 1.5; }
+      .field { margin-bottom: 18px; }
+      label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+      .req { color: var(--accent); font-weight: 400; }
+      input {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--panel);
+        color: var(--text);
+        font-size: 13px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      input:focus { outline: none; border-color: var(--accent); }
+      .hint { color: var(--muted); font-size: 12px; margin-top: 5px; line-height: 1.45; }
+      .footer {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 26px;
+        padding-top: 18px;
+        border-top: 1px solid var(--border);
+      }
+      button {
+        padding: 9px 18px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--panel);
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      button:hover { filter: brightness(1.12); }
+      .status { font-size: 12.5px; flex: 1; line-height: 1.45; }
+      .status.ok { color: var(--green); }
+      .status.err { color: var(--red); }
+      .storage {
+        margin-top: 18px;
+        font-size: 11.5px;
+        color: var(--muted);
+        word-break: break-all;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Settings</h1>
+      <p class="sub">
+        These credentials are stored on this Mac only, in a file readable just by
+        your user account. They are sent to Anthropic and Supabase directly and
+        to nowhere else.
+      </p>
+
+      <form id="form"></form>
+
+      <div class="footer">
+        <span class="status" id="status"></span>
+        <button type="button" id="cancel">Close</button>
+        <button type="button" class="primary" id="save">Save</button>
+      </div>
+
+      <p class="storage" id="storage"></p>
+    </div>
+
+    <script src="./settings.js"></script>
+  </body>
+</html>
