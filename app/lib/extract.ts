@@ -9,7 +9,7 @@ import { CONTRACT_NOTE_TOOL, ContractNote } from "@/app/lib/schema";
  * from the interactive one and they start producing different data.
  */
 
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
+const MODEL = process.env.ANTHROPIC_MODEL || "claude-opus-5";
 
 const SYSTEM_PROMPT = `You are a meticulous financial-data extraction engine.
 You are given a broker CONTRACT NOTE (trade confirmation) as a PDF.
@@ -67,7 +67,9 @@ export async function extractContractNote(
   try {
     message = await client.messages.create({
       model: MODEL,
-      max_tokens: 8000,
+      // Covers thinking *and* the tool output: Sonnet 5 thinks by default, and
+      // both draw on this one budget. 8000 truncates notes with many trades.
+      max_tokens: 16000,
       system: SYSTEM_PROMPT,
       tools: [CONTRACT_NOTE_TOOL as any],
       tool_choice: { type: "tool", name: CONTRACT_NOTE_TOOL.name },
@@ -95,6 +97,24 @@ export async function extractContractNote(
     const detail =
       err?.error?.error?.message || err?.message || "Unknown error calling Claude API.";
     throw new ExtractionError(`Extraction failed: ${detail}`, err?.status || 500);
+  }
+
+  // A decline is a successful HTTP 200 with empty content, not an exception.
+  // Without this it surfaces as the misleading "did not return structured data".
+  if (message.stop_reason === "refusal") {
+    throw new ExtractionError(
+      `The model declined to process ${filename}. If this is an ordinary contract note, re-upload it — a decline here is usually a false positive.`,
+      502
+    );
+  }
+
+  // A truncated response still carries a tool_use block, but its input is
+  // half-parsed JSON. Silently saving that is worse than failing the note.
+  if (message.stop_reason === "max_tokens") {
+    throw new ExtractionError(
+      `Extraction ran out of output budget on ${filename}. The note is probably long — raise max_tokens and retry.`,
+      502
+    );
   }
 
   const toolUse = message.content.find(

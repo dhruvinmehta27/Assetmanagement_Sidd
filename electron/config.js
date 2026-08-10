@@ -27,7 +27,7 @@ const FIELDS = [
   {
     key: "ANTHROPIC_MODEL",
     label: "Model (optional)",
-    hint: "Defaults to claude-sonnet-5.",
+    hint: "Defaults to claude-opus-5.",
     secret: false,
     required: false,
   },
