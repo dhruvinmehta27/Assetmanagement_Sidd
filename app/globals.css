@@ -360,3 +360,11 @@ summary {
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
+
+/* Long error messages inside table cells: wrap instead of stretching the
+   table and forcing the whole card to scroll sideways. */
+.wrap-cell {
+  max-width: 420px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

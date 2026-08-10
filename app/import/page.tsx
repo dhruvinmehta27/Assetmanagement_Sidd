@@ -356,7 +356,7 @@ export default function ImportPage() {
                       {r.status === "failed" && (
                         <>
                           <span className="tag neg">failed</span>
-                          <div className="footnote">{r.error}</div>
+                          <div className="footnote wrap-cell">{r.error}</div>
                         </>
                       )}
                     </td>
