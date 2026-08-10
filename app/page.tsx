@@ -85,6 +85,11 @@ export default function Home() {
           Upload a broker contract note PDF — the app extracts every field it
           can into structured data, then saves it to your portfolio.
         </p>
+        <p className="footnote">
+          Got a backlog? <a href="/import">Folder Import</a> processes a whole
+          folder in one go — available in the desktop app, which can read PDFs
+          from your disk.
+        </p>
       </header>
 
       <form onSubmit={handleSubmit} className="card uploader">

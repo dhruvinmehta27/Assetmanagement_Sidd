@@ -185,11 +185,20 @@ export default function ImportPage() {
         </div>
         <div className="card muted">
           <p>
-            Folder import is only available in the <strong>desktop app</strong> — it reads
-            PDFs directly from a folder on your machine, which a browser cannot do.
+            <strong>Install the desktop app to use this feature.</strong>
+          </p>
+          <p>
+            Importing a whole folder at once means reading PDFs straight off your
+            disk and moving them as they are processed. A browser tab is not
+            allowed to do either — so this page can only work in the macOS
+            desktop build, which runs the same app with filesystem access.
           </p>
           <p className="footnote">
-            On the web, upload contract notes one at a time from the <a href="/">Upload</a> page.
+            Build it from the repo with <span className="mono">npm run desktop:build</span>,
+            which produces <span className="mono">Asset Manager.dmg</span>. See the
+            README for setup. In the meantime you can upload contract notes one at
+            a time from the <a href="/">Upload</a> page — same extraction, same
+            de-duplication, just one file per go.
           </p>
         </div>
       </main>
