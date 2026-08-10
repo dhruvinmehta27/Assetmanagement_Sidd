@@ -38,7 +38,13 @@ export async function ensureStructure(root: string): Promise<void> {
     throw new Error(`Not a folder: ${root}`);
   }
   for (const dir of [INBOX, IMPORTED, FAILED]) {
-    await fs.mkdir(path.join(root, dir), { recursive: true });
+    // `root` is chosen by the user at runtime, so Turbopack cannot scope this
+    // statically and falls back to tracing the whole project into the server
+    // output — which on the desktop build swept dist/ (previous .dmg included)
+    // into the bundle. The dynamic path is intentional and desktop-gated.
+    await fs.mkdir(path.join(/*turbopackIgnore: true*/ root, dir), {
+      recursive: true,
+    });
   }
 }
 

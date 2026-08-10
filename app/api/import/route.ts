@@ -14,9 +14,11 @@ import {
 } from "@/app/lib/folder";
 
 export const runtime = "nodejs";
-// Long batches must not be cut off mid-flight; the desktop server has no
-// platform timeout, unlike Vercel.
-export const maxDuration = 3600;
+// Vercel-only knob: `next start` ignores it, so the desktop importer runs
+// uncapped regardless of what is set here. It still has to be a value Vercel
+// will accept at build time, and the Hobby plan rejects anything over 300 —
+// which failed every deploy on this branch. This route 403s on web anyway.
+export const maxDuration = 300;
 
 /**
  * Batch-import every PDF under <root>/inbox.
