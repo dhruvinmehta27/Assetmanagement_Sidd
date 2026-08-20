@@ -156,6 +156,8 @@ Open Supabase → SQL Editor → New query, paste all of
 [`supabase/schema.sql`](supabase/schema.sql), Run. It is idempotent
 (`IF NOT EXISTS` / `CREATE OR REPLACE`), so re-running is safe.
 
+**Upgrading an existing project:** do not re-run `schema.sql` — it will not alter a table that already exists. Run `supabase/migrations/2026-08-20-corporate-actions.sql` instead, which widens `corporate_actions` for the full set of action types. The desktop app manages its own SQLite schema and needs nothing done to it.
+
 The desktop app needs none of this — it creates its own tables on first use.
 
 ---
@@ -338,7 +340,7 @@ version adds three views and a helper function.
 | `account_codes` 🖥 | one broker's client code | maps `(broker, client code)` → account, unique on that pair |
 | `contract_notes` | one PDF | full charge breakdown + `raw_json` of the whole extraction, for audit. Unique on `(broker_name, contract_note_number, trade_date)`. |
 | `trades` | one trade line | `side` BUY/SELL, `quantity` always positive. Indexed on ISIN, trade date, note id. |
-| `corporate_actions` | one split / bonus / merger | `quantity_multiplier`: new qty = old qty × multiplier. Unique on `(isin, action_type, ex_date)`. |
+| `corporate_actions` | one corporate action, of the ten types in Table 4 | Ratio convention: `ratio_from` shares held become `ratio_to`. Unique on `(isin, action_type, ex_date, target_key)` — a demerger into four companies is four rows. |
 | `dividends` | one dividend receipt | gross, TDS, net; manual or auto source. |
 
 | View / function | |
