@@ -35,6 +35,52 @@ extraction errors — see below.
 
 ---
 
+## Prices, Master, and the ability to undo — built 20 Aug
+
+**Live prices (BSE).** `app/lib/sources/prices.ts`, stored in a `prices` table
+rather than fetched per render, so every page valuing a holding renders offline
+from the last set taken and a stale valuation is visibly stale. Checked against
+the real portfolio: 21 of 21 priced, no failures, including the ETFs and the four
+Vedanta entities that had listed weeks earlier. Storing them also satisfies
+Table 3 H — a delisted holding keeps its last recorded price.
+
+This is the third and last thing in the app that reaches the internet, and the
+most revealing of the three: a price request names a security you hold. It runs
+on a button on the Master page, never on a schedule and never on page load.
+
+**Unrealised gains (Table 2 O–R)** are split per lot, not per holding — the term
+depends on when each lot was acquired, and one holding can sit on both sides.
+On the real data: ₹4,59,480.61 long-term gain against ₹3,87,082.34 long-term
+loss, netting to exactly valuation minus cost.
+
+**Master (Table 6)** at `/master`. Capital employed, dividends, shares from each
+kind of corporate action, realised LTCG/STCG, current valuation, and Net Capital
+Employed. The spec's formula `= L-K-J-I-H-G-F-E` subtracts the share-count
+columns along with the money ones; share counts are quantities, so they are
+reported and left out of the arithmetic.
+
+**Table 1 F, Q and R** — registered mobile, settlement time, taxable value of
+supply — are now extracted and stored.
+
+**Things can finally be undone.** A contract note can be deleted with its trades
+(from Reconcile, where you find out one is wrong), and an account can be renamed,
+have its PAN corrected, or be deleted. Correcting a PAN also claims the notes
+that were waiting for it. Deleting an account withdraws the claim and nothing
+else — its notes return to the unassigned queue rather than being destroyed,
+verified: 26 notes survived the account that owned them.
+
+Deletion rather than field-level editing, deliberately. A note is a transcription
+of a document; if it is wrong the honest fix is to remove it and read the
+document again, not to hand-adjust figures until they look right and leave no
+trace they were adjusted.
+
+**One bug worth remembering.** `computeAcrossAccounts` rebuilt each holding when
+merging accounts and dropped the lots, so `unrealisedByTerm` fell back to "one
+lot dated today" and reported a two-year-old portfolio as entirely short-term.
+Caught because the figures were checked against holdings whose age was known.
+
+---
+
 ## P&L, tax and dividends — built 20 Aug
 
 **Table 2 of the spec is now built except the unrealised rows.** Realised gains

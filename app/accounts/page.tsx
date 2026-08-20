@@ -181,28 +181,24 @@ export default function AccountsPage() {
                     <th>Type</th>
                     <th>PAN</th>
                     <th>Known broker codes</th>
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
                   {accounts.map((a) => (
-                    <tr key={a.id}>
-                      <td>
-                        <b>{a.label}</b>
-                      </td>
-                      <td>{a.entity_type}</td>
-                      <td className="mono">{a.pan || "—"}</td>
-                      <td className="footnote">
-                        {a.codes && a.codes.length > 0
-                          ? a.codes
-                              .map((c) => `${c.broker_name} · ${c.client_code}`)
-                              .join(", ")
-                          : "none yet"}
-                      </td>
-                    </tr>
+                    <AccountRow
+                      key={a.id}
+                      account={a}
+                      onChanged={(msg) => {
+                        setMessage(msg);
+                        load();
+                      }}
+                      onError={setError}
+                    />
                   ))}
                   {accounts.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="muted">
+                      <td colSpan={5} className="muted">
                         No accounts yet. Add the first one below — then anything
                         waiting above can be assigned to it.
                       </td>
@@ -384,5 +380,148 @@ function NewAccountForm({
         </button>
       </div>
     </form>
+  );
+}
+
+/**
+ * One account, editable in place.
+ *
+ * A wrong PAN is the one worth fixing rather than working around: it is what
+ * routes notes to a person, so correcting it also claims every note that has
+ * been sitting unassigned waiting for it.
+ *
+ * Deleting withdraws the claim and nothing else. The notes came from real
+ * documents and go back to the unassigned queue — deleting an account is a
+ * statement about the account, not about them.
+ */
+function AccountRow({
+  account,
+  onChanged,
+  onError,
+}: {
+  account: Account;
+  onChanged: (message: string) => void;
+  onError: (message: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [f, setF] = useState({
+    label: account.label,
+    pan: account.pan ?? "",
+    entity_type: account.entity_type,
+  });
+
+  async function save() {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/accounts/${encodeURIComponent(account.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: f.label, pan: f.pan || null, entity_type: f.entity_type }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Could not save.");
+      setEditing(false);
+      onChanged(`Updated ${f.label}.`);
+    } catch (err: any) {
+      onError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/accounts/${encodeURIComponent(account.id)}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Could not delete.");
+      onChanged(`Deleted ${account.label}. Its notes are back in the queue above.`);
+    } catch (err: any) {
+      onError(err.message);
+    } finally {
+      setBusy(false);
+      setConfirming(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <tr>
+        <td colSpan={5}>
+          <div className="formrow">
+            <input
+              value={f.label}
+              onChange={(e) => setF({ ...f, label: e.target.value })}
+              placeholder="Name *"
+            />
+            <select
+              value={f.entity_type}
+              onChange={(e) => setF({ ...f, entity_type: e.target.value })}
+            >
+              {ENTITY_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t.charAt(0) + t.slice(1).toLowerCase()}
+                </option>
+              ))}
+            </select>
+            <input
+              value={f.pan}
+              onChange={(e) => setF({ ...f, pan: e.target.value })}
+              placeholder="PAN (ABCDE1234F)"
+              style={{ textTransform: "uppercase" }}
+            />
+            <button className="btn" onClick={save} disabled={busy}>
+              {busy ? "…" : "Save"}
+            </button>
+            <button className="linkbtn" onClick={() => setEditing(false)}>
+              cancel
+            </button>
+          </div>
+          <p className="footnote">
+            Correcting the PAN also claims any unassigned note carrying it.
+          </p>
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr>
+      <td>
+        <b>{account.label}</b>
+      </td>
+      <td>{account.entity_type}</td>
+      <td className="mono">{account.pan || "—"}</td>
+      <td className="footnote">
+        {account.codes && account.codes.length > 0
+          ? account.codes.map((c) => `${c.broker_name} · ${c.client_code}`).join(", ")
+          : "none yet"}
+      </td>
+      <td className="status-cell">
+        {confirming ? (
+          <>
+            <button className="linkbtn neg" onClick={remove} disabled={busy}>
+              {busy ? "…" : "delete it"}
+            </button>
+            <button className="linkbtn" onClick={() => setConfirming(false)}>
+              keep
+            </button>
+          </>
+        ) : (
+          <>
+            <button className="linkbtn" onClick={() => setEditing(true)}>
+              edit
+            </button>
+            <button className="linkbtn" onClick={() => setConfirming(true)}>
+              delete
+            </button>
+          </>
+        )}
+      </td>
+    </tr>
   );
 }

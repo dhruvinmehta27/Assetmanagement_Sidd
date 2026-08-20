@@ -46,6 +46,7 @@ export function computeAcrossAccounts(
       quantity: number;
       invested: number;
       delisted: boolean;
+      lots: { date: string; quantity: number; cost_per_unit: number }[];
     }
   >();
   const realized: ReturnType<typeof computePortfolio>["realized"] = [];
@@ -62,6 +63,10 @@ export function computeAcrossAccounts(
         existing.quantity += h.quantity;
         existing.invested += h.invested;
         existing.delisted = existing.delisted || Boolean(h.delisted);
+        // Lots from different accounts are different lots; concatenating keeps
+        // each one's acquisition date, which is what decides whether its
+        // unrealised gain is long-term or short.
+        existing.lots.push(...(h.lots ?? []));
       } else {
         merged.set(h.isin, {
           isin: h.isin,
@@ -69,6 +74,7 @@ export function computeAcrossAccounts(
           quantity: h.quantity,
           invested: h.invested,
           delisted: Boolean(h.delisted),
+          lots: [...(h.lots ?? [])],
         });
       }
     }
@@ -80,6 +86,7 @@ export function computeAcrossAccounts(
       quantity: round(h.quantity),
       invested: round(h.invested),
       avg_cost: h.quantity ? Math.round((h.invested / h.quantity) * 10000) / 10000 : 0,
+      lots: h.lots.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)),
     }))
     .sort((a, b) => (a.security_name || "").localeCompare(b.security_name || ""));
 

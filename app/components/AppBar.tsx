@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
 /**
@@ -11,21 +11,35 @@ import { usePathname } from "next/navigation";
  * and adding a page is one line in LINKS.
  */
 
+/**
+ * Nine entries is as many as fit. The labels were longer — "Folder Import",
+ * "Corporate Actions" — until the ninth page pushed the active one off the
+ * right-hand edge at 1280px, which is the width this runs at.
+ */
 const LINKS = [
   { href: "/", label: "Dashboard" },
   { href: "/upload", label: "Upload" },
-  { href: "/import", label: "Folder Import" },
+  { href: "/import", label: "Import" },
   { href: "/accounts", label: "Accounts" },
   { href: "/reconcile", label: "Reconcile" },
-  { href: "/corporate-actions", label: "Corporate Actions" },
+  { href: "/corporate-actions", label: "Actions" },
   { href: "/portfolio", label: "Portfolio" },
-  { href: "/pnl", label: "P&L & Tax" },
+  { href: "/pnl", label: "P&L" },
+  { href: "/master", label: "Master" },
 ];
 
 type Choice = "light" | "dark" | "system";
 
 export default function AppBar() {
   const pathname = usePathname();
+  const navRef = useRef<HTMLElement | null>(null);
+
+  // On a narrow window the bar scrolls, and the page you are on can start out
+  // off-screen — which reads as the nav having lost it.
+  useEffect(() => {
+    const active = navRef.current?.querySelector(".nav-active");
+    active?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [pathname]);
 
   return (
     <header className="appbar">
@@ -34,7 +48,7 @@ export default function AppBar() {
           <span className="brand-dot" />
           Asset Manager
         </a>
-        <nav className="nav">
+        <nav className="nav" ref={navRef}>
           {LINKS.map((l) =>
             l.href === pathname ? (
               <span key={l.href} className="nav-active">

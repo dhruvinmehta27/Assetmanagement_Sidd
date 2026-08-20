@@ -82,6 +82,15 @@ export interface Holding {
   invested: number; // quantity * avg_cost
   /** Delisted holdings stay on the books but are worth nothing until relisted. */
   delisted?: boolean;
+  /**
+   * The open lots behind the figures above.
+   *
+   * Exposed because unrealised gains have to be split short-term from
+   * long-term, and that is a property of each lot's acquisition date rather
+   * than of the holding: 100 shares bought two years ago and 100 bought last
+   * month are one holding and two different tax treatments.
+   */
+  lots?: { date: string; quantity: number; cost_per_unit: number }[];
 }
 
 export type RealizedSource = "SELL" | "BUYBACK" | "LIQUIDATION";
@@ -726,6 +735,11 @@ export function computePortfolio(
       avg_cost: round(invested / qty, 4),
       invested: round(invested),
       delisted: pos.delisted,
+      lots: pos.lots.map((l) => ({
+        date: l.date,
+        quantity: round(l.qty, 4),
+        cost_per_unit: round(l.costPerUnit, 6),
+      })),
     });
   }
 
@@ -867,5 +881,89 @@ export function sharesFromActions(effects: ActionEffect[]): SharesFromActions {
     demerger: round(out.demerger, 4),
     rights: round(out.rights, 4),
     closed: round(out.closed, 4),
+  };
+}
+
+/**
+ * Table 2 rows O–R: unrealised gains, split short-term from long-term.
+ *
+ * Per lot rather than per holding, because the split is a property of when each
+ * lot was acquired. A holding can sit on both sides at once.
+ *
+ * A lot with no price contributes nothing and is counted separately — silently
+ * valuing it at zero would report a loss that has not happened, and silently
+ * valuing it at cost would report a portfolio that never moves.
+ */
+export interface Unrealised {
+  ultcg: number;
+  ustcg: number;
+  ultcl: number;
+  ustcl: number;
+  /** Market value of everything that could be priced. */
+  market_value: number;
+  /** Cost of the same, so the two are comparable. */
+  priced_cost: number;
+  /** Cost of what could not be priced at all. */
+  unpriced_cost: number;
+  unpriced: { isin: string; security_name: string | null; invested: number; delisted: boolean }[];
+}
+
+export function unrealisedByTerm(
+  holdings: Holding[],
+  priceOf: (isin: string) => number | null | undefined,
+  today = new Date().toISOString().slice(0, 10)
+): Unrealised {
+  const out: Unrealised = {
+    ultcg: 0, ustcg: 0, ultcl: 0, ustcl: 0,
+    market_value: 0, priced_cost: 0, unpriced_cost: 0, unpriced: [],
+  };
+
+  for (const h of holdings) {
+    const price = priceOf(h.isin);
+    if (price === null || price === undefined || !Number.isFinite(price)) {
+      out.unpriced_cost += h.invested;
+      out.unpriced.push({
+        isin: h.isin,
+        security_name: h.security_name,
+        invested: h.invested,
+        delisted: Boolean(h.delisted),
+      });
+      continue;
+    }
+
+    // Without lots, fall back to treating the holding as one lot at avg cost —
+    // the term split is then unknown, so it lands in short-term, which is the
+    // conservative side (taxed higher).
+    const lots = h.lots?.length
+      ? h.lots
+      : [{ date: today, quantity: h.quantity, cost_per_unit: h.avg_cost }];
+
+    for (const lot of lots) {
+      const value = lot.quantity * price;
+      const cost = lot.quantity * lot.cost_per_unit;
+      const gain = value - cost;
+      out.market_value += value;
+      out.priced_cost += cost;
+
+      const long = daysBetween(lot.date, today) > LONG_TERM_DAYS;
+      if (gain >= 0) {
+        if (long) out.ultcg += gain;
+        else out.ustcg += gain;
+      } else {
+        if (long) out.ultcl += -gain;
+        else out.ustcl += -gain;
+      }
+    }
+  }
+
+  return {
+    ...out,
+    ultcg: round(out.ultcg),
+    ustcg: round(out.ustcg),
+    ultcl: round(out.ultcl),
+    ustcl: round(out.ustcl),
+    market_value: round(out.market_value),
+    priced_cost: round(out.priced_cost),
+    unpriced_cost: round(out.unpriced_cost),
   };
 }

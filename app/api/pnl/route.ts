@@ -12,6 +12,7 @@ import {
   finYear,
   pnlByFinancialYear,
   TradeRow,
+  unrealisedByTerm,
 } from "@/app/lib/analytics";
 import { computeAcrossAccounts } from "@/app/lib/portfolio";
 import { computeTax, costsByFinancialYear, ratesFor, SetOffMode } from "@/app/lib/tax";
@@ -23,11 +24,12 @@ export const dynamic = "force-dynamic";
  * Table 2 of the spec: the profit and loss statement, per financial year.
  *
  * Realised gains split into profit and loss, losses set off, the long-term
- * exemption applied, and tax computed. Everything comes from stored data — no
- * network, no market prices.
+ * exemption applied, and tax computed. The unrealised rows (O–R) come from the
+ * last prices stored.
  *
- * The unrealised rows (Table 2 O–R) are absent on purpose: they need today's
- * price for every holding, which nothing in this app knows.
+ * Everything is read from the database — this route never reaches the network,
+ * so the statement renders offline and a stale valuation is visibly stale rather
+ * than silently refreshed under a figure someone is about to rely on.
  */
 export async function GET(req: Request) {
   if (!isStorageConfigured())
@@ -64,7 +66,13 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 
-  const { realized } = computeAcrossAccounts(trades, actions);
+  const { realized, holdings } = computeAcrossAccounts(trades, actions);
+
+  // Table 2 rows O–R. Read from stored prices only — this route never fetches,
+  // so the statement renders offline and a stale valuation is visible as stale.
+  const prices = await store.listPrices();
+  const priceMap = new Map(prices.map((p) => [p.isin, p.price]));
+  const unrealised = unrealisedByTerm(holdings, (isin) => priceMap.get(isin) ?? null);
   const pnl = pnlByFinancialYear(realized);
   const costs = costsByFinancialYear(notes as any, finYear);
   const dividendsByFY = aggregateDividends(dividends);
@@ -115,6 +123,14 @@ export async function GET(req: Request) {
   return NextResponse.json({
     years: rows,
     mode,
+    /**
+     * As at today, not per financial year: an unrealised gain has no year until
+     * it is realised. Shown alongside the statement because Table 2 asks for it,
+     * and flagged as untaxed because it is.
+     */
+    unrealised,
+    priced: prices.length,
+    priced_as_of: prices.length ? prices.map((p) => p.as_of).sort()[0] : null,
     accounts,
     accountsSupported: store.accountsSupported,
     selectedAccounts: filter?.accountIds ?? null,
@@ -125,7 +141,7 @@ export async function GET(req: Request) {
     caveats: [
       "Listed equity with STT paid. No debt, property, business income or F&O.",
       "No carry-forward of losses from earlier years, and no surcharge or rebate.",
-      "Unrealised gains are not shown — that needs today's market prices, which this app does not fetch.",
+      "Unrealised gains use the last prices fetched, and are not taxable until sold.",
       "Dividends are taxed at your slab rate, so they are reported here but not taxed.",
     ],
   });

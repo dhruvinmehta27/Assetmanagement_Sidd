@@ -223,11 +223,12 @@ export default function ReconcilePage() {
                       <th className="num">Printed net</th>
                       <th className="num">Difference</th>
                       <th>Status</th>
+                      <th />
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((r) => (
-                      <ReconcileRow key={r.id} row={r} />
+                      <ReconcileRow key={r.id} row={r} onDeleted={load} onError={setError} />
                     ))}
                   </tbody>
                 </table>
@@ -246,9 +247,37 @@ export default function ReconcilePage() {
   );
 }
 
-function ReconcileRow({ row }: { row: Row }) {
+function ReconcileRow({
+  row,
+  onDeleted,
+  onError,
+}: {
+  row: Row;
+  onDeleted: () => void;
+  onError: (m: string) => void;
+}) {
   const [open, setOpen] = useState(false);
+  // Two presses rather than a confirm dialog: a modal blocks the Electron
+  // window outright if anything goes wrong, and this is undoable only by
+  // re-importing the PDF.
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
   const bad = row.status === "off";
+
+  async function remove() {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/notes/${encodeURIComponent(row.id)}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Could not delete.");
+      onDeleted();
+    } catch (err: any) {
+      onError(err.message);
+    } finally {
+      setBusy(false);
+      setConfirming(false);
+    }
+  }
 
   return (
     <>
@@ -278,6 +307,22 @@ function ReconcileRow({ row }: { row: Row }) {
           {row.flags.length > 0 && (
             <button className="linkbtn" onClick={() => setOpen(!open)}>
               {open ? "hide" : `${row.flags.length} note${row.flags.length === 1 ? "" : "s"}`}
+            </button>
+          )}
+        </td>
+        <td className="status-cell">
+          {confirming ? (
+            <>
+              <button className="linkbtn neg" onClick={remove} disabled={busy}>
+                {busy ? "…" : "delete it"}
+              </button>
+              <button className="linkbtn" onClick={() => setConfirming(false)}>
+                keep
+              </button>
+            </>
+          ) : (
+            <button className="linkbtn" onClick={() => setConfirming(true)} title="Delete this note and its trades">
+              remove
             </button>
           )}
         </td>

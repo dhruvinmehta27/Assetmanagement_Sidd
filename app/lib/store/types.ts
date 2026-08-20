@@ -183,6 +183,23 @@ export interface StoredCorporateAction {
   source: string;
 }
 
+/**
+ * The last price seen for a security, and when.
+ *
+ * Stored rather than fetched per page for two reasons: a valuation that needs a
+ * network round trip to render is a valuation nobody looks at, and Table 3 of
+ * the spec asks that a delisted holding keep its last recorded price — which
+ * only works if prices are remembered.
+ */
+export interface StoredPrice {
+  isin: string;
+  price: number;
+  change_percent: number | null;
+  security_name: string | null;
+  source: string;
+  as_of: string;
+}
+
 export interface DividendInput {
   isin: string;
   /** Which person received it. Required for it to appear in any portfolio view. */
@@ -257,6 +274,21 @@ export interface Store {
   upsertCorporateAction(input: CorporateActionInput): Promise<string>;
   /** Remove one. A wrong ratio must be correctable, not permanent. */
   deleteCorporateAction(id: string): Promise<boolean>;
+
+  /** Last known prices, for valuation. Empty until someone fetches them. */
+  listPrices(): Promise<StoredPrice[]>;
+  savePrices(prices: StoredPrice[]): Promise<number>;
+
+  /**
+   * Delete a contract note and everything under it.
+   *
+   * The only way to undo a bad import. Trades cascade with the note.
+   */
+  deleteContractNote(id: string): Promise<boolean>;
+  /** Rename an account, fix its PAN, or change its type. */
+  updateAccount(id: string, input: AccountInput): Promise<void>;
+  /** Delete an account. Its notes and trades become unassigned, not deleted. */
+  deleteAccount(id: string): Promise<boolean>;
 
   // ---- accounts ----
   listAccounts(): Promise<Account[]>;

@@ -18,6 +18,7 @@ import {
   StoredCorporateAction,
   StoredDividend,
   StoredNoteWithTrades,
+  StoredPrice,
   StoredTrade,
   UnassignedGroup,
 } from "@/app/lib/store/types";
@@ -67,11 +68,14 @@ create table if not exists contract_notes (
   trade_date                    text,
   settlement_date               text,
   settlement_number             text,
+  settlement_time               text,
   client_name                   text,
   client_code                   text,
   pan                           text,
+  registered_mobile             text,
   exchange                      text,
   currency                      text default 'INR',
+  taxable_value_of_supply       real,
   brokerage                     real,
   exchange_transaction_charges  real,
   clearing_charges              real,
@@ -182,6 +186,17 @@ create table if not exists dividends (
   created_at         text not null
 );
 
+-- Last known price per security. One row per ISIN, overwritten on refresh:
+-- this is "what is it worth now", not a price history.
+create table if not exists prices (
+  isin            text primary key,
+  price           real not null,
+  change_percent  real,
+  security_name   text,
+  source          text not null default 'BSE',
+  as_of           text not null
+);
+
 create index if not exists dividends_account_idx on dividends(account_id);
 create index if not exists dividends_isin_idx    on dividends(isin);
 create index if not exists dividends_paydate_idx on dividends(pay_date);
@@ -249,6 +264,18 @@ function migrate(conn: DatabaseSync): void {
   for (const table of ["contract_notes", "trades", "dividends"]) {
     if (!columns(table).includes("account_id")) {
       conn.exec(`alter table ${table} add column account_id text`);
+    }
+  }
+
+  // Table 1 F, Q and R, added later than the rest.
+  const noteColumns = columns("contract_notes");
+  for (const [name, type] of [
+    ["registered_mobile", "text"],
+    ["settlement_time", "text"],
+    ["taxable_value_of_supply", "real"],
+  ] as [string, string][]) {
+    if (!noteColumns.includes(name)) {
+      conn.exec(`alter table contract_notes add column ${name} ${type}`);
     }
   }
 
@@ -602,13 +629,14 @@ export const sqliteStore: Store = {
         .prepare(
           `insert into contract_notes (
              id, broker_name, broker_sebi_regn, contract_note_number, trade_date,
-             settlement_date, settlement_number, client_name, client_code, pan,
-             exchange, currency, brokerage, exchange_transaction_charges,
+             settlement_date, settlement_number, settlement_time, client_name,
+             client_code, pan, registered_mobile,
+             exchange, currency, taxable_value_of_supply, brokerage, exchange_transaction_charges,
              clearing_charges, sebi_turnover_fees, stt, stamp_duty, ipft, gst,
              cgst, sgst, igst, demat_charges, rounding, other_charges,
              total_charges, net_amount, net_amount_direction, source_filename,
              raw_json, account_id, created_at
-           ) values (${new Array(33).fill("?").join(", ")})`
+           ) values (${new Array(36).fill("?").join(", ")})`
         )
         .run(
           noteId,
@@ -618,11 +646,14 @@ export const sqliteStore: Store = {
           v(d.trade_date),
           v(d.settlement_date),
           v(d.settlement_number),
+          v(d.settlement_time),
           v(d.client_name),
           v(d.client_code),
           v(d.pan),
+          v(d.registered_mobile),
           v(d.exchange),
           v(d.currency ?? "INR"),
+          num(c.taxable_value_of_supply),
           num(c.brokerage),
           num(c.exchange_transaction_charges),
           num(c.clearing_charges),
@@ -896,6 +927,97 @@ export const sqliteStore: Store = {
   async deleteCorporateAction(id: string): Promise<boolean> {
     const res = open().prepare("delete from corporate_actions where id = ?").run(id);
     return Number(res.changes ?? 0) > 0;
+  },
+
+  async listPrices(): Promise<StoredPrice[]> {
+    return open()
+      .prepare("select isin, price, change_percent, security_name, source, as_of from prices")
+      .all() as unknown as StoredPrice[];
+  },
+
+  async savePrices(prices: StoredPrice[]): Promise<number> {
+    if (prices.length === 0) return 0;
+    const conn = open();
+    const stmt = conn.prepare(
+      `insert into prices (isin, price, change_percent, security_name, source, as_of)
+       values (?, ?, ?, ?, ?, ?)
+       on conflict (isin) do update set
+         price = excluded.price,
+         change_percent = excluded.change_percent,
+         security_name = excluded.security_name,
+         source = excluded.source,
+         as_of = excluded.as_of`
+    );
+    conn.exec("begin immediate");
+    try {
+      for (const q of prices) {
+        stmt.run(q.isin, q.price, num(q.change_percent), v(q.security_name), q.source, q.as_of);
+      }
+      conn.exec("commit");
+    } catch (err) {
+      conn.exec("rollback");
+      throw new StoreError(`Could not save prices: ${(err as Error).message}`);
+    }
+    return prices.length;
+  },
+
+  async deleteContractNote(id: string): Promise<boolean> {
+    const conn = open();
+    conn.exec("begin immediate");
+    try {
+      // Trades cascade on the foreign key, but the pragma is only on for
+      // connections that set it — delete them explicitly so this is true
+      // regardless of how the database was opened.
+      conn.prepare("delete from trades where contract_note_id = ?").run(id);
+      const res = conn.prepare("delete from contract_notes where id = ?").run(id);
+      conn.exec("commit");
+      return Number(res.changes ?? 0) > 0;
+    } catch (err) {
+      conn.exec("rollback");
+      throw new StoreError(`Could not delete the note: ${(err as Error).message}`);
+    }
+  },
+
+  async updateAccount(id: string, input: AccountInput): Promise<void> {
+    const label = input.label?.trim();
+    if (!label) throw new StoreError("An account needs a name.");
+    const pan = normalizePan(input.pan);
+    if (input.pan && !pan) {
+      throw new StoreError(`"${input.pan}" is not a valid PAN. It should look like ABCDE1234F.`);
+    }
+
+    const conn = open();
+    try {
+      conn
+        .prepare("update accounts set label = ?, pan = ?, entity_type = ? where id = ?")
+        .run(label, pan, input.entity_type ?? "INDIVIDUAL", id);
+      // A newly correct PAN should pick up the notes it was always meant to.
+      if (pan) claimByPan(conn, id, pan);
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw new StoreError(`PAN ${pan} already belongs to another account.`);
+      }
+      throw new StoreError(`Could not update the account: ${(err as Error).message}`);
+    }
+  },
+
+  async deleteAccount(id: string): Promise<boolean> {
+    const conn = open();
+    conn.exec("begin immediate");
+    try {
+      // The notes are real and were imported from real documents — only the
+      // claim on them is being withdrawn. They go back to the unassigned queue.
+      conn.prepare("update contract_notes set account_id = null where account_id = ?").run(id);
+      conn.prepare("update trades set account_id = null where account_id = ?").run(id);
+      conn.prepare("update dividends set account_id = null where account_id = ?").run(id);
+      conn.prepare("delete from account_codes where account_id = ?").run(id);
+      const res = conn.prepare("delete from accounts where id = ?").run(id);
+      conn.exec("commit");
+      return Number(res.changes ?? 0) > 0;
+    } catch (err) {
+      conn.exec("rollback");
+      throw new StoreError(`Could not delete the account: ${(err as Error).message}`);
+    }
   },
 
   // ---- accounts -----------------------------------------------------------

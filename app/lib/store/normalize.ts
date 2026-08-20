@@ -54,6 +54,7 @@ export function normalizeTrade(t: Trade): Trade {
 export function normalizeCharges(c: Charges | null | undefined): Charges {
   const src = c ?? ({} as Charges);
   return {
+    taxable_value_of_supply: mag(src.taxable_value_of_supply),
     brokerage: mag(src.brokerage),
     exchange_transaction_charges: mag(src.exchange_transaction_charges),
     clearing_charges: mag(src.clearing_charges),

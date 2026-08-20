@@ -10,6 +10,7 @@ import {
   StoredCorporateAction,
   StoredDividend,
   StoredNoteWithTrades,
+  StoredPrice,
   StoredTrade,
 } from "@/app/lib/store/types";
 import { normalizeContractNote } from "@/app/lib/store/normalize";
@@ -95,11 +96,14 @@ export const supabaseStore: Store = {
         trade_date: d.trade_date,
         settlement_date: d.settlement_date,
         settlement_number: d.settlement_number,
+        settlement_time: d.settlement_time,
         client_name: d.client_name,
         client_code: d.client_code,
         pan: d.pan,
+        registered_mobile: d.registered_mobile,
         exchange: d.exchange,
         currency: d.currency ?? "INR",
+        taxable_value_of_supply: c.taxable_value_of_supply,
         brokerage: c.brokerage,
         exchange_transaction_charges: c.exchange_transaction_charges,
         clearing_charges: c.clearing_charges,
@@ -310,6 +314,38 @@ export const supabaseStore: Store = {
       );
     }
     return data.id;
+  },
+
+  /**
+   * Prices, note deletion and account editing are desktop features for now.
+   *
+   * The hosted build has no prices table and no account dimension, and adding
+   * either means a migration someone has to run. Stubs rather than throws where
+   * an empty answer is honest — an empty price list means "nothing priced",
+   * which is true — and a plain refusal where silence would be a lie.
+   */
+  async listPrices(): Promise<StoredPrice[]> {
+    return [];
+  },
+
+  async savePrices(): Promise<number> {
+    throw new StoreError(
+      "Prices are stored only in the desktop app at the moment."
+    );
+  },
+
+  async deleteContractNote(): Promise<boolean> {
+    throw new StoreError(
+      "Deleting a contract note is only available in the desktop app at the moment."
+    );
+  },
+
+  async updateAccount(): Promise<void> {
+    throw new StoreError(ACCOUNTS_UNSUPPORTED);
+  },
+
+  async deleteAccount(): Promise<boolean> {
+    throw new StoreError(ACCOUNTS_UNSUPPORTED);
   },
 
   async deleteCorporateAction(id: string): Promise<boolean> {

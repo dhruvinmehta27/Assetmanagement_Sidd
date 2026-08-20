@@ -46,7 +46,18 @@ function money(n: number | null | undefined): string {
 const pct = (n: number) => `${(n * 100).toFixed(n * 100 % 1 === 0 ? 0 : 1)}%`;
 
 export default function PnlPage() {
-  const [data, setData] = useState<{ years: Year[]; mode: string; caveats: string[]; accounts?: any[]; accountsSupported?: boolean } | null>(null);
+  const [data, setData] = useState<
+    {
+      years: Year[];
+      mode: string;
+      caveats: string[];
+      accounts?: any[];
+      accountsSupported?: boolean;
+      unrealised?: any;
+      priced?: number;
+      priced_as_of?: string | null;
+    } | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [account, setAccount] = useState("");
@@ -305,6 +316,55 @@ export default function PnlPage() {
               </section>
             </div>
           </div>
+
+          {(data.priced ?? 0) > 0 && data.unrealised && (
+            <section className="card">
+              <h2>Unrealised, at today&apos;s prices</h2>
+              <div className="table-wrap">
+                <table className="recon-table">
+                  <tbody>
+                    <Line label="Unrealised profit — long-term (ULTCG)" value={data.unrealised.ultcg} />
+                    <Line label="Unrealised profit — short-term (USTCG)" value={data.unrealised.ustcg} />
+                    <Line label="Unrealised loss — long-term (ULTCL)" value={-data.unrealised.ultcl} />
+                    <Line label="Unrealised loss — short-term (USTCL)" value={-data.unrealised.ustcl} />
+                    <Line
+                      label="Market value of what is held"
+                      value={data.unrealised.market_value}
+                      strong
+                    />
+                  </tbody>
+                </table>
+              </div>
+              <p className="footnote">
+                None of this is taxable — nothing has been sold. Split per lot
+                rather than per holding, since the term depends on when each lot
+                was acquired. Prices last taken{" "}
+                {data.priced_as_of ? new Date(data.priced_as_of).toLocaleString("en-IN") : "never"};
+                refresh them on <a href="/master">Master</a>.
+                {data.unrealised.unpriced_cost > 0 && (
+                  <>
+                    {" "}
+                    <strong>
+                      ₹{money(data.unrealised.unpriced_cost)} of cost could not be
+                      valued
+                    </strong>{" "}
+                    and is excluded above.
+                  </>
+                )}
+              </p>
+            </section>
+          )}
+
+          {(data.priced ?? 0) === 0 && (
+            <section className="card muted">
+              <h2>Unrealised</h2>
+              <p className="footnote">
+                Table 2 also asks for unrealised gains, which need today&apos;s
+                prices. None are stored yet — fetch them on{" "}
+                <a href="/master">Master</a> and they will appear here.
+              </p>
+            </section>
+          )}
 
           <section className="card muted">
             <h2>What this does not cover</h2>
