@@ -13,4 +13,6 @@ contextBridge.exposeInMainWorld("settingsApi", {
   read: () => ipcRenderer.invoke("config:read"),
   path: () => ipcRenderer.invoke("config:path"),
   save: (values) => ipcRenderer.invoke("config:write", values),
+  dbPath: () => ipcRenderer.invoke("config:dbPath"),
+  revealDb: () => ipcRenderer.invoke("config:revealDb"),
 });

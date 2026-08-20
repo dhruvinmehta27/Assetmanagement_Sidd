@@ -23,12 +23,17 @@ type Portfolio = {
     total_realized: number;
     total_dividends: number;
   };
+  storage?: { driver: "sqlite" | "supabase"; location: string; local: boolean };
+  accountsSupported?: boolean;
+  accounts?: { id: string; label: string; pan: string | null; entity_type: string }[];
+  unassigned?: { groups: any[]; notes: number; trades: number };
   holdings: any[];
   pnl: any[];
   realized: any[];
   dividends: any[];
   dividendsByFY: any[];
   corporateActions: any[];
+  actionEffects?: any[];
 };
 
 export default function PortfolioPage() {
@@ -36,11 +41,19 @@ export default function PortfolioPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // "" = every account combined. A single id narrows the whole page, because
+  // holdings and FIFO gains only mean anything within one person's trades.
+  const [account, setAccount] = useState("");
+  // Financial year narrows the P&L and dividend tables only — holdings are
+  // as-of-today and have no financial year.
+  const [year, setYear] = useState("");
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/portfolio", { cache: "no-store" });
+      const qs = account ? `?accounts=${encodeURIComponent(account)}` : "";
+      const res = await fetch(`/api/portfolio${qs}`, { cache: "no-store" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to load portfolio.");
       setData(json);
@@ -49,11 +62,27 @@ export default function PortfolioPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [account]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  const years: string[] = data
+    ? Array.from(
+        new Set([
+          ...data.pnl.map((p: any) => p.financial_year),
+          ...data.dividendsByFY.map((d: any) => d.financial_year),
+        ])
+      ).sort()
+    : [];
+
+  const pnlRows = year
+    ? data?.pnl.filter((p: any) => p.financial_year === year) ?? []
+    : data?.pnl ?? [];
+  const divRows = year
+    ? data?.dividendsByFY.filter((d: any) => d.financial_year === year) ?? []
+    : data?.dividendsByFY ?? [];
 
   return (
     <main className="container">
@@ -61,6 +90,9 @@ export default function PortfolioPage() {
         <nav className="nav">
           <a href="/">← Upload</a>
           <a href="/import">Folder Import</a>
+          <a href="/accounts">Accounts</a>
+          <a href="/reconcile">Reconcile</a>
+          <a href="/corporate-actions">Corporate Actions</a>
           <span className="nav-active">Portfolio &amp; P&amp;L</span>
         </nav>
         <h1>Portfolio &amp; P&amp;L</h1>
@@ -71,8 +103,85 @@ export default function PortfolioPage() {
         </p>
       </header>
 
+      {data?.accountsSupported && (
+        <div className="card">
+          <div className="formrow">
+            <label className="datefield">
+              Account
+              <select value={account} onChange={(e) => setAccount(e.target.value)}>
+                <option value="">All accounts</option>
+                {(data.accounts ?? []).map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.label}
+                    {a.pan ? ` · ${a.pan}` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="datefield">
+              Financial year
+              <select value={year} onChange={(e) => setYear(e.target.value)}>
+                <option value="">All years</option>
+                {years.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <a href="/accounts" className="link-right">
+              Manage accounts →
+            </a>
+          </div>
+          {(data.accounts ?? []).length === 0 && (
+            <p className="footnote">
+              No accounts yet, so nothing can be counted. Add one on the{" "}
+              <a href="/accounts">Accounts</a> page, then assign your imported notes
+              to it.
+            </p>
+          )}
+          <p className="footnote">
+            Holdings and gains are computed per person across every broker, so they
+            cannot be split by broker — a sale at one broker can consume shares
+            bought at another.
+          </p>
+        </div>
+      )}
+
+      {data?.unassigned && data.unassigned.notes > 0 && (
+        <div className="card error">
+          <p>
+            <strong>
+              {data.unassigned.notes} contract note
+              {data.unassigned.notes === 1 ? "" : "s"} ({data.unassigned.trades} trade
+              {data.unassigned.trades === 1 ? "" : "s"}) are not counted below.
+            </strong>
+          </p>
+          <p className="footnote">
+            They were imported but no account claims them yet. Assign them on the{" "}
+            <a href="/accounts">Accounts</a> page and these figures will include them.
+          </p>
+        </div>
+      )}
+
       {error && <div className="card error">⚠️ {error}</div>}
       {loading && <div className="card muted">Loading portfolio…</div>}
+
+      {data?.storage && (
+        <p className="footnote">
+          {data.storage.local ? (
+            <>
+              Stored locally on this Mac —{" "}
+              <span className="mono">{data.storage.location}</span>. Nothing in this
+              view has left the machine.
+            </>
+          ) : (
+            <>
+              Stored in Supabase (<span className="mono">{data.storage.location}</span>).
+            </>
+          )}
+        </p>
+      )}
 
       {data && (
         <>
@@ -106,7 +215,18 @@ export default function PortfolioPage() {
                 <tbody>
                   {data.holdings.map((h, i) => (
                     <tr key={i}>
-                      <td>{h.security_name || "—"}</td>
+                      <td>
+                        {h.security_name || "—"}
+                        {/* A delisted holding keeps its cost basis and its
+                            quantity — nothing has been disposed of — but it is
+                            worth nothing until it relists, so say so here
+                            rather than let it sit in the total unremarked. */}
+                        {h.delisted && (
+                          <span className="tag" title="Delisted — retained at cost, worth nothing until it relists.">
+                            delisted
+                          </span>
+                        )}
+                      </td>
                       <td className="mono">{h.isin}</td>
                       <td className="num">{h.quantity}</td>
                       <td className="num">{money(h.avg_cost)}</td>
@@ -142,7 +262,7 @@ export default function PortfolioPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.pnl.map((p, i) => (
+                  {pnlRows.map((p: any, i: number) => (
                     <tr key={i}>
                       <td>
                         <b>{p.financial_year}</b>
@@ -161,10 +281,12 @@ export default function PortfolioPage() {
                       <td className="num">{p.trades_closed}</td>
                     </tr>
                   ))}
-                  {data.pnl.length === 0 && (
+                  {pnlRows.length === 0 && (
                     <tr>
                       <td colSpan={7} className="muted">
-                        No realized gains yet (no sells matched to buys).
+                        {year
+                          ? `Nothing realized in ${year}.`
+                          : "No realized gains yet (no sells matched to buys)."}
                       </td>
                     </tr>
                   )}
@@ -188,7 +310,7 @@ export default function PortfolioPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.dividendsByFY.map((d, i) => (
+                  {divRows.map((d: any, i: number) => (
                     <tr key={i}>
                       <td>
                         <b>{d.financial_year}</b>
@@ -199,56 +321,88 @@ export default function PortfolioPage() {
                       <td className="num">{d.count}</td>
                     </tr>
                   ))}
-                  {data.dividendsByFY.length === 0 && (
+                  {divRows.length === 0 && (
                     <tr>
                       <td colSpan={5} className="muted">
-                        No dividends recorded yet. Add them below.
+                        {year
+                          ? `No dividends in ${year}.`
+                          : "No dividends recorded yet. Add them below."}
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
-            <DividendForm onSaved={load} />
+            <DividendForm
+              onSaved={load}
+              accounts={data.accounts ?? []}
+              accountsSupported={Boolean(data.accountsSupported)}
+              selected={account}
+            />
           </section>
 
-          {/* Corporate actions */}
+          {/* Corporate actions — recorded and edited on their own page, since a
+              split is a fact about a security rather than about this portfolio.
+              What is shown here is only what they did to these holdings. */}
           <section className="card">
             <h2>Corporate actions ({data.corporateActions.length})</h2>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Security</th>
-                    <th>ISIN</th>
-                    <th>Type</th>
-                    <th>Ex-date</th>
-                    <th>Ratio</th>
-                    <th className="num">Qty ×</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.corporateActions.map((a, i) => (
-                    <tr key={i}>
-                      <td>{a.security_name || "—"}</td>
-                      <td className="mono">{a.isin}</td>
-                      <td>{a.action_type}</td>
-                      <td>{a.ex_date}</td>
-                      <td>{a.ratio_text || "—"}</td>
-                      <td className="num">{a.quantity_multiplier}</td>
-                    </tr>
-                  ))}
-                  {data.corporateActions.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="muted">
-                        No corporate actions recorded. Add splits / bonuses below.
-                      </td>
-                    </tr>
+            {data.corporateActions.length === 0 ? (
+              <p className="footnote">
+                None recorded. Every figure above therefore assumes no split, bonus,
+                demerger or merger has touched these
+                {" "}{data.holdings.length} holdings — which is an assumption, not a
+                finding. <a href="/corporate-actions">Record them →</a>
+              </p>
+            ) : (
+              <>
+                {/* Deliberately narrower than the Corporate Actions page: this
+                    is here to say the figures above account for these, not to
+                    be the place they are read. Detail and editing live there. */}
+                <div className="table-wrap">
+                  <table className="recon-table">
+                    <thead>
+                      <tr>
+                        <th>Security</th>
+                        <th>Type</th>
+                        <th>Ex-date</th>
+                        <th className="num">Quantity</th>
+                        <th>Effect</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(data.actionEffects ?? []).map((e: any, i: number) => (
+                        <tr key={i}>
+                          <td>
+                            <div className="clamp">{e.security_name || e.isin}</div>
+                          </td>
+                          <td>
+                            <div className="clamp">{e.action_type}</div>
+                          </td>
+                          <td>{e.ex_date}</td>
+                          <td className="num">
+                            {e.quantity_before} → {e.quantity_after}
+                          </td>
+                          <td className="status-cell">
+                            <span className={`badge ${e.applied ? "buy" : "sell"}`}>
+                              {e.applied ? "applied" : "no effect"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="footnote">
+                  {(data.actionEffects ?? []).some((e: any) => !e.applied) && (
+                    <>
+                      Some of these changed nothing — usually a mismatched ISIN or
+                      ex-date.{" "}
+                    </>
                   )}
-                </tbody>
-              </table>
-            </div>
-            <CorporateActionForm onSaved={load} />
+                  <a href="/corporate-actions">Manage corporate actions →</a>
+                </p>
+              </>
+            )}
           </section>
         </>
       )}
@@ -265,13 +419,31 @@ function Stat({ label, value, cls }: { label: string; value: string; cls?: strin
   );
 }
 
-function DividendForm({ onSaved }: { onSaved: () => void }) {
+function DividendForm({
+  onSaved,
+  accounts,
+  accountsSupported,
+  selected,
+}: {
+  onSaved: () => void;
+  accounts: { id: string; label: string }[];
+  accountsSupported: boolean;
+  selected: string;
+}) {
   const [f, setF] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Default to whichever account the page is filtered to — that is almost always
+  // the one being worked on.
+  const accountId = f.account_id ?? selected;
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (accountsSupported && !accountId) {
+      setMsg("⚠️ Choose which account received this dividend.");
+      return;
+    }
     setBusy(true);
     setMsg(null);
     try {
@@ -280,6 +452,7 @@ function DividendForm({ onSaved }: { onSaved: () => void }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           isin: f.isin,
+          account_id: accountId || null,
           security_name: f.security_name,
           ex_date: f.ex_date,
           pay_date: f.pay_date,
@@ -306,6 +479,16 @@ function DividendForm({ onSaved }: { onSaved: () => void }) {
     <form onSubmit={submit} className="entryform">
       <h3>Add a dividend</h3>
       <div className="formrow">
+        {accountsSupported && (
+          <select value={accountId} onChange={set("account_id")} required>
+            <option value="">Account…</option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.label}
+              </option>
+            ))}
+          </select>
+        )}
         <input placeholder="ISIN *" value={f.isin || ""} onChange={set("isin")} required />
         <input placeholder="Security name" value={f.security_name || ""} onChange={set("security_name")} />
         <input placeholder="Amount/share" type="number" step="any" value={f.amount_per_share || ""} onChange={set("amount_per_share")} />
@@ -313,68 +496,6 @@ function DividendForm({ onSaved }: { onSaved: () => void }) {
         <input placeholder="TDS" type="number" step="any" value={f.tds || ""} onChange={set("tds")} />
         <label className="datefield">Ex-date<input type="date" value={f.ex_date || ""} onChange={set("ex_date")} /></label>
         <label className="datefield">Pay-date<input type="date" value={f.pay_date || ""} onChange={set("pay_date")} /></label>
-        <button className="btn" disabled={busy}>{busy ? "…" : "Add"}</button>
-      </div>
-      {msg && <span className="savestate">{msg}</span>}
-    </form>
-  );
-}
-
-function CorporateActionForm({ onSaved }: { onSaved: () => void }) {
-  const [f, setF] = useState<Record<string, string>>({ action_type: "SPLIT" });
-  const [msg, setMsg] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setMsg(null);
-    try {
-      const res = await fetch("/api/corporate-actions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          isin: f.isin,
-          security_name: f.security_name,
-          action_type: f.action_type,
-          ex_date: f.ex_date,
-          quantity_multiplier: f.quantity_multiplier ? Number(f.quantity_multiplier) : null,
-          ratio_text: f.ratio_text,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed.");
-      setMsg("Corporate action added ✓");
-      setF({ action_type: "SPLIT" });
-      onSaved();
-    } catch (err: any) {
-      setMsg(`⚠️ ${err.message}`);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const set = (k: string) => (e: any) => setF({ ...f, [k]: e.target.value });
-
-  return (
-    <form onSubmit={submit} className="entryform">
-      <h3>Add a corporate action</h3>
-      <p className="hint">
-        Quantity multiplier = new shares ÷ old shares. E.g. 2-for-1 split or 1:1
-        bonus → <b>2</b>; 3:2 bonus → <b>2.5</b>. Cost basis is preserved automatically.
-      </p>
-      <div className="formrow">
-        <input placeholder="ISIN *" value={f.isin || ""} onChange={set("isin")} required />
-        <input placeholder="Security name" value={f.security_name || ""} onChange={set("security_name")} />
-        <select value={f.action_type} onChange={set("action_type")}>
-          <option value="SPLIT">Split</option>
-          <option value="BONUS">Bonus</option>
-          <option value="MERGER">Merger</option>
-          <option value="OTHER">Other</option>
-        </select>
-        <input placeholder="Ratio (e.g. 1:1)" value={f.ratio_text || ""} onChange={set("ratio_text")} />
-        <input placeholder="Qty multiplier *" type="number" step="any" value={f.quantity_multiplier || ""} onChange={set("quantity_multiplier")} required />
-        <label className="datefield">Ex-date<input type="date" value={f.ex_date || ""} onChange={set("ex_date")} required /></label>
         <button className="btn" disabled={busy}>{busy ? "…" : "Add"}</button>
       </div>
       {msg && <span className="savestate">{msg}</span>}

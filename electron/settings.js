@@ -48,8 +48,13 @@ async function init() {
     form.appendChild(wrap);
   }
 
-  storageEl.textContent = `Stored at: ${await window.settingsApi.path()}`;
+  storageEl.textContent = `Settings file: ${await window.settingsApi.path()}`;
+  document.getElementById("dbpath").textContent = await window.settingsApi.dbPath();
 }
+
+document
+  .getElementById("reveal")
+  .addEventListener("click", () => window.settingsApi.revealDb());
 
 document.getElementById("save").addEventListener("click", async () => {
   const values = {};
@@ -67,10 +72,16 @@ document.getElementById("save").addEventListener("click", async () => {
   }
 
   const result = await window.settingsApi.save(values);
+
+  if (result.error) {
+    setStatus(`Saved, but the app could not restart with it: ${result.error}`, "err");
+    return;
+  }
+
   setStatus(
     result.needsRestart
       ? "Saved. Quit and reopen Asset Manager for the keys to take effect."
-      : "Saved.",
+      : "Saved and in use — no restart needed.",
     "ok"
   );
 });

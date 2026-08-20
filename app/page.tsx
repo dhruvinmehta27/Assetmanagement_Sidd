@@ -164,6 +164,9 @@ export default function Home() {
         <nav className="nav">
           <span className="nav-active">Upload</span>
           <a href="/import">Folder Import</a>
+          <a href="/accounts">Accounts</a>
+          <a href="/reconcile">Reconcile</a>
+          <a href="/corporate-actions">Corporate Actions</a>
           <a href="/portfolio">Portfolio &amp; P&amp;L →</a>
         </nav>
         <h1>Contract Note Extractor</h1>

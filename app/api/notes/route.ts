@@ -1,24 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isSupabaseConfigured } from "@/app/lib/supabase";
-import { saveContractNote, PersistError } from "@/app/lib/persist";
+import {
+  getStore,
+  isStorageConfigured,
+  storageNotConfiguredMessage,
+} from "@/app/lib/store";
 import { ContractNote } from "@/app/lib/schema";
 
 export const runtime = "nodejs";
 
 /**
- * Persist an extracted contract note (and its trades) into Supabase.
+ * Persist an extracted contract note (and its trades) to whichever store this
+ * build uses — a local SQLite file on desktop, Supabase on the web.
  * De-duplicates on (broker_name, contract_note_number, trade_date) so
  * re-uploading the same note does not double-count trades.
  */
 export async function POST(req: NextRequest) {
-  if (!isSupabaseConfigured()) {
-    return NextResponse.json(
-      {
-        error:
-          "Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to your environment.",
-      },
-      { status: 500 }
-    );
+  if (!isStorageConfigured()) {
+    return NextResponse.json({ error: storageNotConfiguredMessage() }, { status: 500 });
   }
 
   let payload: { data: ContractNote; filename?: string };
@@ -33,10 +31,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await saveContractNote(payload.data, payload.filename);
+    const store = await getStore();
+    const result = await store.saveContractNote(payload.data, payload.filename);
     return NextResponse.json(result);
   } catch (err: any) {
-    const status = err instanceof PersistError ? 500 : 500;
-    return NextResponse.json({ error: err.message }, { status });
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

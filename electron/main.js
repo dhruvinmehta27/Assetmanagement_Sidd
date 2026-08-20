@@ -96,6 +96,11 @@ async function startServer(envFromConfig) {
       // the client supplies. Safe here because the server and the user are the
       // same person on the same machine; it must stay off for any hosted deploy.
       DESKTOP_APP: "1",
+      // Everything the app extracts is written to a SQLite file next to
+      // config.json, so no portfolio data ever leaves this machine. The web
+      // build keeps using Supabase; nothing here affects it.
+      STORAGE_DRIVER: "sqlite",
+      LOCAL_DB_PATH: path.join(app.getPath("userData"), "portfolio.db"),
       NODE_ENV: "production",
       PORT: String(port),
       HOSTNAME: "127.0.0.1",
@@ -265,17 +270,43 @@ ipcMain.handle("shell:reveal", (_event, target) => {
 ipcMain.handle("config:fields", () => config.FIELDS);
 ipcMain.handle("config:read", () => config.read(app));
 ipcMain.handle("config:path", () => config.configPath(app));
+ipcMain.handle("config:dbPath", () => config.dbPath(app));
 
-ipcMain.handle("config:write", (_event, values) => {
+// Reveal the database in Finder, not open it — double-clicking a .db would hand
+// it to whatever app claims the extension.
+ipcMain.handle("config:revealDb", () => shell.showItemInFolder(config.dbPath(app)));
+
+ipcMain.handle("config:write", async (_event, values) => {
   const saved = config.write(app, values);
 
-  // The running Next server captured the old keys in its env at spawn time, so
-  // it has to be restarted for new credentials to take effect. In dev the user
-  // owns that process; tell the renderer so it can say so.
-  if (!isDev) {
-    Object.assign(process.env, config.toEnv(saved));
+  // The running Next server captured the old keys in its env when it was
+  // spawned, so saving alone changes nothing for it. Relying on the user to
+  // quit and reopen is a trap: everything looks configured, extraction still
+  // fails, and a folder import can move an entire batch into failed/ before
+  // anyone works out why. So respawn the server here and point the window at
+  // the new port.
+  if (isDev) {
+    // In dev the user owns the `next dev` process; we cannot restart it.
+    return { ok: true, complete: config.isComplete(saved), needsRestart: true };
   }
-  return { ok: true, complete: config.isComplete(saved), needsRestart: true };
+
+  Object.assign(process.env, config.toEnv(saved));
+
+  try {
+    stopServer();
+    appOrigin = await startServer(config.toEnv(saved));
+    await mainWindow?.loadURL(appOrigin);
+    return { ok: true, complete: config.isComplete(saved), needsRestart: false };
+  } catch (err) {
+    // Could not bring it back up — say so plainly rather than reporting success
+    // and leaving a dead window behind.
+    return {
+      ok: false,
+      complete: config.isComplete(saved),
+      needsRestart: true,
+      error: String(err?.message || err),
+    };
+  }
 });
 
 // ---- Lifecycle -----------------------------------------------------------

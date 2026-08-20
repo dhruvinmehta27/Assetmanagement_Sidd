@@ -336,6 +336,34 @@ summary {
   align-items: flex-end;
 }
 
+/*
+ * The unassigned queue carries free-text taken off the contract note — broker
+ * names like "Some Broking Services Pvt. Ltd." and full client names. With the
+ * global `white-space: nowrap` on cells those columns cannot wrap, so the table
+ * grows past its card and the Assign control — the whole point of the table —
+ * scrolls out of sight. Let the text columns wrap instead, and keep the control
+ * itself on one line so the button stays beside its dropdown.
+ */
+.assign-table td,
+.assign-table th {
+  white-space: normal;
+}
+
+.assign-table td.assign-cell {
+  white-space: nowrap;
+  width: 1%;
+}
+
+.assign-table .formrow {
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.assign-table .formrow select {
+  min-width: 0;
+  max-width: 190px;
+}
+
 .formrow input,
 .formrow select {
   background: var(--panel-2);
@@ -359,6 +387,64 @@ summary {
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.03em;
+}
+
+/*
+ * Reconciliation is nine columns wide and the verdict is the last of them. At
+ * the global 12px cell padding the table runs past its card, and `Status` — the
+ * one column a reader is guaranteed to want — is the first thing to scroll out
+ * of sight. Tighten the spacing rather than drop a column: on a page whose whole
+ * job is to show its working, every number it used has to be visible.
+ */
+.recon-table th,
+.recon-table td {
+  padding: 8px 9px;
+}
+
+.recon-table td.status-cell {
+  white-space: nowrap;
+  width: 1%;
+}
+
+/* The expanded detail under a row: prose and bullets, so left-align it. The
+   global .footnote centres text, which leaves list items adrift of their
+   bullets. */
+.recon-detail {
+  text-align: left;
+}
+
+.recon-detail ul {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+
+/* The "3 notes" disclosure beside a verdict — a button, but a quiet one. */
+.linkbtn {
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.linkbtn:hover {
+  color: var(--text);
+}
+
+/*
+ * A width limit that a table actually honours.
+ *
+ * `max-width` on a `td` is ignored under the default `table-layout: auto` — the
+ * browser sizes the column to its content regardless, which is how one long
+ * description column pushed the corporate-actions table 240px past its card. On
+ * a block element inside the cell it is obeyed.
+ */
+.clamp {
+  max-width: 190px;
+  white-space: normal;
 }
 
 /* Long error messages inside table cells: wrap instead of stretching the
