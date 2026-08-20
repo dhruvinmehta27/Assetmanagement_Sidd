@@ -105,27 +105,58 @@ create index if not exists trades_trade_date_idx   on trades(trade_date);
 create index if not exists trades_note_idx         on trades(contract_note_id);
 
 -- -----------------------------------------------------------------------------
--- corporate_actions — splits, bonuses, etc. (manual entry or auto-fetched)
---   quantity_multiplier: new qty = old qty * multiplier (cost basis preserved).
---     2-for-1 split  -> 2.0      1:1 bonus (1 new per 1 held) -> 2.0
---     5:1 split (face 10->2)     -> 5.0      3:2 bonus         -> 2.5
+-- corporate_actions — all ten types in Table 4 of the spec.
+--
+-- Ten names over four mechanisms; app/lib/corporate-actions.ts is the authority
+-- on which columns each type uses, so most are null on any given row.
+--
+--   RATIO        split, reverse split, bonus     ratio_from/ratio_to
+--   TRANSFER     demerger, merger, ISIN change   + target_isin, cost_fraction
+--   ENTITLEMENT  rights issue                    + price_per_share, quantity
+--   EXIT         buyback, liquidation            + price_per_share, quantity
+--                delisting needs nothing but a date
+--
+-- One ratio convention throughout: `ratio_from` shares held become `ratio_to`.
+-- A bonus of "1 new for every 2 held" is 2 -> 3, never 2 -> 1. Getting this
+-- backwards corrupts a cost basis silently and permanently.
+--
+-- No CHECK on action_type or source: the type list is expected to grow, and
+-- `source` records where a row came from ('manual', 'nse', 'nse+filing').
+--
+-- If you have an existing project, do not recreate this table — run
+-- supabase/migrations/2026-08-20-corporate-actions.sql instead.
 -- -----------------------------------------------------------------------------
 create table if not exists corporate_actions (
-  id                   uuid primary key default gen_random_uuid(),
-  isin                 text not null,
-  symbol               text,
-  security_name        text,
-  action_type          text not null check (action_type in ('SPLIT','BONUS','MERGER','OTHER')),
-  ex_date              date not null,
-  quantity_multiplier  numeric(18,6) not null,
-  ratio_text           text,           -- human label, e.g. "1:1 bonus", "5-for-1 split"
-  notes                text,
-  source               text not null default 'manual' check (source in ('manual','auto')),
-  created_at           timestamptz not null default now(),
-  constraint corporate_actions_unique unique (isin, action_type, ex_date)
+  id                    uuid primary key default gen_random_uuid(),
+  isin                  text not null,
+  symbol                text,
+  security_name         text,
+  action_type           text not null,
+  ex_date               date not null,
+  ratio_from            numeric(18,6),
+  ratio_to              numeric(18,6),
+  quantity_multiplier   numeric(18,6),  -- derived: ratio_to / ratio_from
+  target_isin           text,           -- demerger / merger / ISIN change
+  target_symbol         text,
+  target_security_name  text,
+  -- '' rather than null for the types with no target: Postgres treats nulls as
+  -- distinct in a unique index, so one would stop it deduplicating anything.
+  target_key            text not null default '',
+  cost_fraction         numeric(9,6),   -- share of cost basis leaving, demergers
+  price_per_share       numeric(18,6),  -- rights issue, buyback, liquidation
+  quantity              numeric(18,4),  -- shares taken up / accepted
+  ratio_text            text,           -- the exchange's own words, verbatim
+  notes                 text,
+  source                text not null default 'manual',
+  created_at            timestamptz not null default now(),
+  -- target_key is in the key because a demerger into four companies is four
+  -- rows on the same security and date, differing only in where the cost goes.
+  constraint corporate_actions_unique unique (isin, action_type, ex_date, target_key)
 );
 
 create index if not exists corp_actions_isin_idx on corporate_actions(isin);
+create index if not exists corp_actions_target_idx
+  on corporate_actions(target_isin) where target_isin is not null;
 
 -- -----------------------------------------------------------------------------
 -- dividends — dividend receipts (manual entry or auto-fetched)

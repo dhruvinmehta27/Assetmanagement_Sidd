@@ -1,24 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabase, isSupabaseConfigured } from "@/app/lib/supabase";
+import {
+  getStore,
+  isStorageConfigured,
+  storageNotConfiguredMessage,
+} from "@/app/lib/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  if (!isSupabaseConfigured())
-    return NextResponse.json({ error: "Supabase not configured." }, { status: 500 });
-  const sb = getSupabase();
-  const { data, error } = await sb
-    .from("dividends")
-    .select("*")
-    .order("pay_date", { ascending: false });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ dividends: data });
+  if (!isStorageConfigured())
+    return NextResponse.json({ error: storageNotConfiguredMessage() }, { status: 500 });
+
+  try {
+    const store = await getStore();
+    return NextResponse.json({ dividends: await store.listDividends() });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
-  if (!isSupabaseConfigured())
-    return NextResponse.json({ error: "Supabase not configured." }, { status: 500 });
+  if (!isStorageConfigured())
+    return NextResponse.json({ error: storageNotConfiguredMessage() }, { status: 500 });
 
   let body: any;
   try {
@@ -31,6 +35,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "ISIN is required." }, { status: 400 });
   }
 
+  const store = await getStore();
+  if (store.accountsSupported && !body.account_id) {
+    return NextResponse.json(
+      { error: "Choose which account received this dividend." },
+      { status: 400 }
+    );
+  }
+
   const gross =
     body.gross_amount ??
     (body.amount_per_share && body.quantity
@@ -39,11 +51,12 @@ export async function POST(req: NextRequest) {
   const tds = body.tds ?? 0;
   const net = body.net_amount ?? (gross != null ? gross - tds : null);
 
-  const sb = getSupabase();
-  const { data, error } = await sb
-    .from("dividends")
-    .insert({
+  try {
+    const id = await store.addDividend({
       isin: body.isin,
+      // Without this the row saves with no owner and is excluded from every
+      // portfolio view — silently, which is the worst way to lose a number.
+      account_id: body.account_id ?? null,
       symbol: body.symbol ?? null,
       security_name: body.security_name ?? null,
       ex_date: body.ex_date || null,
@@ -55,10 +68,9 @@ export async function POST(req: NextRequest) {
       net_amount: net,
       source: body.source ?? "manual",
       notes: body.notes ?? null,
-    })
-    .select("id")
-    .single();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ saved: true, id: data.id });
+    });
+    return NextResponse.json({ saved: true, id });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
 }

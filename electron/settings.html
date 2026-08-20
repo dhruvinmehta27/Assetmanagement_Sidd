@@ -76,16 +76,23 @@
         color: var(--muted);
         word-break: break-all;
         line-height: 1.5;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       }
+      .datasection {
+        margin-top: 26px;
+        padding-top: 18px;
+        border-top: 1px solid var(--border);
+      }
+      .datasection h2 { font-size: 14px; margin: 0 0 6px; }
+      .datasection .storage { margin: 10px 0 12px; }
     </style>
   </head>
   <body>
     <div class="wrap">
       <h1>Settings</h1>
       <p class="sub">
-        These credentials are stored on this Mac only, in a file readable just by
-        your user account. They are sent to Anthropic and Supabase directly and
-        to nowhere else.
+        Your API key is stored on this Mac only, in a file readable just by your
+        user account, and is sent to Anthropic and nowhere else.
       </p>
 
       <form id="form"></form>
@@ -94,6 +101,18 @@
         <span class="status" id="status"></span>
         <button type="button" id="cancel">Close</button>
         <button type="button" class="primary" id="save">Save</button>
+      </div>
+
+      <div class="datasection">
+        <h2>Your data</h2>
+        <p class="hint">
+          Everything the app extracts — contract notes, trades, dividends,
+          corporate actions — is written to a local database file on this Mac.
+          No account, no cloud database, nothing to configure. Back up this one
+          file and you have backed up your whole portfolio.
+        </p>
+        <p class="storage" id="dbpath"></p>
+        <button type="button" id="reveal">Show in Finder</button>
       </div>
 
       <p class="storage" id="storage"></p>

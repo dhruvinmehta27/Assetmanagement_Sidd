@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { extractContractNote } from "@/app/lib/extract";
-import { saveContractNote } from "@/app/lib/persist";
-import { isSupabaseConfigured } from "@/app/lib/supabase";
+import { extractContractNote, getApiKey } from "@/app/lib/extract";
+import {
+  getStore,
+  isStorageConfigured,
+  storageNotConfiguredMessage,
+} from "@/app/lib/store";
 import {
   assertDesktop,
   ensureStructure,
@@ -14,9 +17,11 @@ import {
 } from "@/app/lib/folder";
 
 export const runtime = "nodejs";
-// Long batches must not be cut off mid-flight; the desktop server has no
-// platform timeout, unlike Vercel.
-export const maxDuration = 3600;
+// Vercel-only knob: `next start` ignores it, so the desktop importer runs
+// uncapped regardless of what is set here. It still has to be a value Vercel
+// will accept at build time, and the Hobby plan rejects anything over 300 —
+// which failed every deploy on this branch. This route 403s on web anyway.
+export const maxDuration = 300;
 
 /**
  * Batch-import every PDF under <root>/inbox.
@@ -44,12 +49,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: (err as Error).message }, { status });
   }
 
-  if (!isSupabaseConfigured()) {
-    return NextResponse.json(
-      { error: "Supabase is not configured. Add your Supabase settings, then restart the app." },
-      { status: 500 }
-    );
+  if (!isStorageConfigured()) {
+    return NextResponse.json({ error: storageNotConfiguredMessage() }, { status: 500 });
   }
+
+  // Check the API key BEFORE touching a single file. Without this, a missing or
+  // stale key fails every extraction in turn and marches the whole batch into
+  // failed/ — hundreds of files moved for a reason that has nothing to do with
+  // any of them, and a recovery that means dragging them all back by hand.
+  try {
+    getApiKey();
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+
+  const store = await getStore();
 
   let root: string;
   try {
@@ -84,7 +98,7 @@ export async function POST(req: NextRequest) {
       let nextIndex = 0;
       let processed = 0;
 
-      send({ type: "start", total: files.length, root });
+      send({ type: "start", total: files.length, root, storage: store.info() });
 
       /** One worker pulls files off the shared cursor until they run out. */
       const worker = async () => {
@@ -103,7 +117,7 @@ export async function POST(req: NextRequest) {
           try {
             const pdf = await fs.readFile(file);
             const { data } = await extractContractNote(pdf, name);
-            const result = await saveContractNote(data, name);
+            const result = await store.saveContractNote(data, name);
 
             const dest = await fileAsImported(root, file, data);
             const status = result.duplicate ? "duplicate" : "saved";
@@ -118,6 +132,9 @@ export async function POST(req: NextRequest) {
               trade_date: data.trade_date,
               contract_note_number: data.contract_note_number,
               trades: result.trades,
+              // Null means no account claimed it — the file is still filed, but
+              // its trades sit outside every portfolio figure until assigned.
+              account_id: result.account_id,
               movedTo: path.relative(root, dest),
             });
           } catch (err: any) {

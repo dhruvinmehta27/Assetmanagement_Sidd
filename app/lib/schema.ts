@@ -26,7 +26,9 @@ export interface Trade {
   net_value: number | null;
 }
 
+/** Table 1 R: the GST base, which is not the same as the charges GST is on. */
 export interface Charges {
+  taxable_value_of_supply: number | null;
   brokerage: number | null;
   exchange_transaction_charges: number | null;
   clearing_charges: number | null;
@@ -51,9 +53,13 @@ export interface ContractNote {
   trade_date: string | null; // ISO YYYY-MM-DD when possible
   settlement_date: string | null;
   settlement_number: string | null;
+  /** Table 1 Q. Distinct from the date — some notes print a settlement time. */
+  settlement_time: string | null;
   client_name: string | null;
   client_code: string | null;
   pan: string | null;
+  /** Table 1 F. Printed on most notes; never used to identify, only recorded. */
+  registered_mobile: string | null;
   exchange: string | null;
   currency: string | null;
   trades: Trade[];
@@ -83,10 +89,18 @@ export const CONTRACT_NOTE_TOOL = {
         description: "Trade date, ISO YYYY-MM-DD when it can be determined.",
       },
       settlement_date: { type: ["string", "null"] },
+      settlement_time: {
+        type: ["string", "null"],
+        description: "Settlement time if the note prints one, distinct from the date.",
+      },
       settlement_number: { type: ["string", "null"] },
       client_name: { type: ["string", "null"] },
       client_code: { type: ["string", "null"] },
       pan: { type: ["string", "null"] },
+      registered_mobile: {
+        type: ["string", "null"],
+        description: "Registered mobile number of the client, if the note prints one.",
+      },
       exchange: { type: ["string", "null"] },
       currency: {
         type: ["string", "null"],
@@ -119,6 +133,10 @@ export const CONTRACT_NOTE_TOOL = {
       charges: {
         type: "object",
         properties: {
+          taxable_value_of_supply: {
+            type: ["number", "null"],
+            description: "The value GST is computed on, where the note states it.",
+          },
           brokerage: { type: ["number", "null"] },
           exchange_transaction_charges: { type: ["number", "null"] },
           clearing_charges: { type: ["number", "null"] },

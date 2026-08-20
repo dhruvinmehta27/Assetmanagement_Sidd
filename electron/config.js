@@ -31,21 +31,17 @@ const FIELDS = [
     secret: false,
     required: false,
   },
-  {
-    key: "NEXT_PUBLIC_SUPABASE_URL",
-    label: "Supabase project URL",
-    hint: "Settings → API → Project URL, e.g. https://xxxx.supabase.co",
-    secret: false,
-    required: true,
-  },
-  {
-    key: "SUPABASE_SERVICE_ROLE_KEY",
-    label: "Supabase service role key",
-    hint: "Settings → API → service_role. Stays on this Mac; never sent anywhere but Supabase.",
-    secret: true,
-    required: true,
-  },
 ];
+
+/**
+ * Where the local portfolio database lives. The desktop build stores everything
+ * it extracts here — no hosted database, no service-role key to look after — so
+ * this path is the whole of the user's financial data and worth surfacing in
+ * the Settings window for backups.
+ */
+function dbPath(app) {
+  return path.join(app.getPath("userData"), "portfolio.db");
+}
 
 function configPath(app) {
   return path.join(app.getPath("userData"), "config.json");
@@ -94,4 +90,4 @@ function toEnv(values) {
   return env;
 }
 
-module.exports = { FIELDS, configPath, read, write, isComplete, toEnv };
+module.exports = { FIELDS, configPath, dbPath, read, write, isComplete, toEnv };

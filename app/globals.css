@@ -1,14 +1,128 @@
+/**
+ * One stylesheet, two skins.
+ *
+ * Every colour in the app comes from a token defined three times: once for
+ * light on bare `:root`, once for dark under `prefers-color-scheme` (guarded so
+ * an explicit light choice still wins), and once under `[data-theme="dark"]` so
+ * the toggle beats the system in both directions. Nothing below this block
+ * names a literal colour — if a rule needs one that does not exist, add a token
+ * rather than a hex code, or the other skin silently breaks.
+ *
+ * The class vocabulary is deliberately unchanged. Six pages and ~380 class
+ * usages were written against it, so restyling happens here and touches none of
+ * them.
+ *
+ * This is a financial ledger, so the type is calm, the numbers are tabular and
+ * right-aligned, and colour is reserved for meaning — gains, losses, warnings,
+ * and the one action a page wants you to take.
+ */
+
 :root {
-  --bg: #0b0f1a;
-  --panel: #131a2b;
-  --panel-2: #1a2338;
-  --border: #263149;
-  --text: #e8edf7;
-  --muted: #8b98b3;
-  --accent: #4f8cff;
-  --green: #2ecc71;
-  --red: #ff5c7a;
+  /* Surfaces, back to front. */
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --surface-2: #f0f3f8;
+  --surface-3: #e6ebf3;
+  --border: #dde3ec;
+  --border-strong: #c3ccda;
+
+  /* Text, loudest to quietest. */
+  --text: #131722;
+  --text-2: #465065;
+  --muted: #6b7688;
+
+  /* Meaning. */
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-fg: #ffffff;
+  --accent-weak: rgba(37, 99, 235, 0.09);
+  --green: #0f8a4d;
+  --green-weak: rgba(15, 138, 77, 0.11);
+  --red: #d3253f;
+  --red-weak: rgba(211, 37, 63, 0.1);
+  --amber: #a56206;
+  --amber-weak: rgba(165, 98, 6, 0.12);
+
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.12);
+  --ring: 0 0 0 3px rgba(37, 99, 235, 0.22);
+
   --radius: 12px;
+  --radius-sm: 8px;
+
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  color-scheme: light;
+}
+
+/* System preference — but never override a deliberate choice of light. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0a0e17;
+    --surface: #121826;
+    --surface-2: #1a2132;
+    --surface-3: #232c40;
+    --border: #263049;
+    --border-strong: #37415c;
+
+    --text: #eef2f9;
+    --text-2: #b7c1d4;
+    --muted: #8592a8;
+
+    --accent: #5c93ff;
+    --accent-hover: #78a6ff;
+    --accent-fg: #06101f;
+    --accent-weak: rgba(92, 147, 255, 0.14);
+    --green: #3ddc84;
+    --green-weak: rgba(61, 220, 132, 0.14);
+    --red: #ff6b85;
+    --red-weak: rgba(255, 107, 133, 0.14);
+    --amber: #f0b429;
+    --amber-weak: rgba(240, 180, 41, 0.15);
+
+    /* Shadows read as grime on dark surfaces; depth comes from the border. */
+    --shadow-sm: none;
+    --shadow: none;
+    --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.55);
+    --ring: 0 0 0 3px rgba(92, 147, 255, 0.3);
+
+    color-scheme: dark;
+  }
+}
+
+/* The toggle, which must win over the system in both directions. */
+:root[data-theme="dark"] {
+  --bg: #0a0e17;
+  --surface: #121826;
+  --surface-2: #1a2132;
+  --surface-3: #232c40;
+  --border: #263049;
+  --border-strong: #37415c;
+
+  --text: #eef2f9;
+  --text-2: #b7c1d4;
+  --muted: #8592a8;
+
+  --accent: #5c93ff;
+  --accent-hover: #78a6ff;
+  --accent-fg: #06101f;
+  --accent-weak: rgba(92, 147, 255, 0.14);
+  --green: #3ddc84;
+  --green-weak: rgba(61, 220, 132, 0.14);
+  --red: #ff6b85;
+  --red-weak: rgba(255, 107, 133, 0.14);
+  --amber: #f0b429;
+  --amber-weak: rgba(240, 180, 41, 0.15);
+
+  --shadow-sm: none;
+  --shadow: none;
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.55);
+  --ring: 0 0 0 3px rgba(92, 147, 255, 0.3);
+
+  color-scheme: dark;
 }
 
 * {
@@ -21,92 +135,250 @@ body {
   padding: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    Helvetica, Arial, sans-serif;
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
 
-.container {
-  max-width: 1000px;
+/* Switching skins should feel like a light coming on, not a page reload — but
+   never animate on first paint, which the no-flash script guards with .preload. */
+body:not(.preload),
+body:not(.preload) .card,
+body:not(.preload) .appbar {
+  transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+  border-radius: var(--radius-sm);
+}
+
+/* ---------------------------------------------------------------- app bar -- */
+
+/*
+ * The nav used to be six bare links floating above the content with no
+ * container and no sense of being part of an application. It is now a bar that
+ * stays put, which also gives the theme toggle somewhere to live that is the
+ * same on every page.
+ */
+.appbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: saturate(1.4) blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.appbar-inner {
+  max-width: 1120px;
   margin: 0 auto;
-  padding: 48px 24px 96px;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-height: 56px;
+}
+
+.brand {
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.brand:hover {
+  text-decoration: none;
+}
+
+.brand-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-right: 8px;
+  vertical-align: 1px;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.nav::-webkit-scrollbar {
+  display: none;
+}
+
+.nav a,
+.nav-active {
+  padding: 6px 11px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.nav a:hover {
+  background: var(--surface-2);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.nav-active {
+  background: var(--accent-weak);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.appbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Three-state theme control: light / dark / follow the system. */
+.themetoggle {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.themetoggle button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 12px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  font-family: inherit;
+}
+
+.themetoggle button:hover {
+  color: var(--text);
+}
+
+.themetoggle button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---------------------------------------------------------------- layout -- */
+
+.container {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 32px 24px 96px;
 }
 
 .header {
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 
 h1 {
-  font-size: 28px;
-  margin: 0 0 6px;
-  letter-spacing: -0.02em;
+  font-size: 26px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  letter-spacing: -0.022em;
+  line-height: 1.2;
 }
 
 .subtitle {
-  color: var(--muted);
+  color: var(--text-2);
   margin: 0;
-  font-size: 15px;
+  font-size: 14.5px;
+  max-width: 72ch;
 }
 
+/* ----------------------------------------------------------------- cards -- */
+
 .card {
-  background: var(--panel);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 20px;
   margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
 }
 
 .card h2 {
-  font-size: 16px;
+  font-size: 13px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
   margin: 0 0 16px;
+}
+
+.card h3 {
+  font-size: 15px;
+  font-weight: 650;
+  margin: 0 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Cards that carry a verdict rather than content: tinted, not just outlined. */
+.card.error {
+  border-color: color-mix(in srgb, var(--red) 45%, var(--border));
+  background: var(--red-weak);
   color: var(--text);
 }
 
-.uploader {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
+.card.error strong {
+  color: var(--red);
 }
 
-.filedrop {
-  flex: 1;
-  min-width: 240px;
-  position: relative;
-  border: 1px dashed var(--border);
-  border-radius: 10px;
-  padding: 14px 16px;
-  cursor: pointer;
-  background: var(--panel-2);
-  transition: border-color 0.15s;
+.card.muted {
+  background: var(--surface-2);
+  color: var(--text-2);
 }
 
-.filedrop:hover {
-  border-color: var(--accent);
-}
-
-.filedrop input {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.filedrop-label {
-  color: var(--muted);
-  font-size: 14px;
-}
+/* --------------------------------------------------------------- buttons -- */
 
 .btn {
   background: var(--accent);
-  color: white;
-  border: none;
-  border-radius: 10px;
-  padding: 12px 22px;
+  color: var(--accent-fg);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 9px 16px;
   font-size: 14px;
   font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: background-color 0.14s ease, opacity 0.14s ease;
+  white-space: nowrap;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--accent-hover);
 }
 
 .btn:disabled {
@@ -114,47 +386,79 @@ h1 {
   cursor: not-allowed;
 }
 
-.error {
-  border-color: var(--red);
-  color: var(--red);
+/* The quiet button: disclosures, row actions, anything not the main move. */
+.linkbtn {
+  margin-left: 8px;
+  padding: 3px 9px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: color 0.14s ease, border-color 0.14s ease;
 }
+
+.linkbtn:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+/* ----------------------------------------------------------------- text --- */
 
 .muted {
   color: var(--muted);
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 14px;
+/*
+ * Left-aligned, deliberately. This used to be centred, which put every
+ * explanatory paragraph and every bulleted list in the app on a centre axis —
+ * the single thing that made the app look most unfinished.
+ */
+.footnote {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: left;
+  max-width: 86ch;
 }
 
-.info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.hint {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0 0 12px;
+  max-width: 86ch;
 }
 
-.info-label {
+.mono {
+  font-family: var(--mono);
   font-size: 12px;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-variant-ligatures: none;
 }
 
-.info-value {
-  font-size: 15px;
-  font-weight: 500;
+.pos {
+  color: var(--green);
 }
+
+.neg {
+  color: var(--red);
+}
+
+/* ---------------------------------------------------------------- tables -- */
 
 .table-wrap {
   overflow-x: auto;
+  margin: 0 -4px;
+  padding: 0 4px;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 13.5px;
 }
 
 th,
@@ -163,13 +467,35 @@ td {
   padding: 10px 12px;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
+  vertical-align: top;
 }
 
-th {
-  font-size: 12px;
+/*
+ * Not sticky, deliberately. A sticky header seems obviously right for a long
+ * table, but these pages carry four of them inside separate cards: each header
+ * detaches from its own card, floats over the rows of whichever table you are
+ * passing, and they queue up behind the app bar. It also hid the first row of
+ * every table outright. A plain header that scrolls with its card is correct
+ * here.
+ */
+thead th {
+  background: var(--surface);
+  font-size: 11px;
+  font-weight: 650;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: var(--muted);
+  border-bottom: 1px solid var(--border-strong);
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+tbody tr:hover td {
+  background: var(--surface-2);
 }
 
 td.num,
@@ -178,84 +504,155 @@ th.num {
   font-variant-numeric: tabular-nums;
 }
 
-.mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12px;
-  color: var(--muted);
+td.num {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--text);
 }
+
+/* ---------------------------------------------------------------- badges -- */
 
 .badge {
   display: inline-block;
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-size: 12px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
   font-weight: 600;
-  background: var(--panel-2);
+  letter-spacing: 0.01em;
+  background: var(--surface-3);
+  color: var(--text-2);
+  white-space: nowrap;
 }
 
 .badge.buy {
-  background: rgba(46, 204, 113, 0.15);
+  background: var(--green-weak);
   color: var(--green);
 }
 
 .badge.sell {
-  background: rgba(255, 92, 122, 0.15);
+  background: var(--red-weak);
   color: var(--red);
 }
 
 .tag {
   display: inline-block;
   margin-left: 8px;
-  padding: 1px 6px;
+  padding: 1px 7px;
   font-size: 11px;
-  border-radius: 5px;
-  background: var(--panel-2);
+  border-radius: 999px;
+  background: var(--surface-3);
   color: var(--muted);
 }
 
-details pre {
-  overflow-x: auto;
-  background: var(--panel-2);
-  padding: 16px;
-  border-radius: 8px;
-  font-size: 12px;
-  line-height: 1.5;
+/* ------------------------------------------------------------ stat tiles -- */
+
+/*
+ * The track is wide enough for a real figure, not for the placeholder that was
+ * in it when this was written. `₹25,94,380.32` needs 155px of text; at
+ * minmax(160px) the tile's content box was 135px and the number ran out of its
+ * own card — visible at 1280 wide and not at 900, because fewer columns per row
+ * makes each one wider.
+ */
+.statgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(192px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
-summary {
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.footnote {
-  color: var(--muted);
-  font-size: 13px;
-  text-align: center;
-}
-
-/* nav */
-.nav {
+.stat {
+  margin-bottom: 0;
   display: flex;
-  gap: 18px;
-  margin-bottom: 18px;
-  font-size: 14px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
 }
 
-.nav a {
-  color: var(--accent);
-  text-decoration: none;
-}
-
-.nav a:hover {
-  text-decoration: underline;
-}
-
-.nav-active {
+.stat-label {
+  font-size: 11px;
   color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.055em;
   font-weight: 600;
 }
 
-/* save bar */
+.stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  /* The backstop. A portfolio in crores will outgrow any track width we pick,
+     and a number that wraps is ugly where a number that escapes its card is
+     broken. */
+  overflow-wrap: anywhere;
+}
+
+/* A figure with something to say underneath it — a delta, a denominator. */
+.stat-sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: -2px;
+}
+
+/* ----------------------------------------------------------------- forms -- */
+
+.entryform {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.entryform h3 {
+  font-size: 14px;
+  margin: 0 0 6px;
+}
+
+.formrow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 10px;
+}
+
+.formrow:last-child {
+  margin-bottom: 0;
+}
+
+.formrow input,
+.formrow select {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  min-width: 120px;
+  transition: border-color 0.14s ease;
+}
+
+.formrow input:hover,
+.formrow select:hover {
+  border-color: var(--muted);
+}
+
+.formrow input::placeholder {
+  color: var(--muted);
+}
+
+.datefield {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
 .savebar {
   display: flex;
   align-items: center;
@@ -270,95 +667,158 @@ summary {
 
 .link-right {
   margin-left: auto;
-  color: var(--accent);
-  text-decoration: none;
   font-size: 14px;
 }
 
-/* stat grid */
-.statgrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+/* ------------------------------------------------------------- uploader --- */
+
+.uploader {
+  display: flex;
   gap: 12px;
-  margin-bottom: 16px;
-}
-
-.stat {
-  margin-bottom: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.stat-value {
-  font-size: 20px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.pos {
-  color: var(--green);
-}
-
-.neg {
-  color: var(--red);
-}
-
-/* entry forms */
-.entryform {
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px solid var(--border);
-}
-
-.entryform h3 {
-  font-size: 14px;
-  margin: 0 0 6px;
-}
-
-.hint {
-  font-size: 13px;
-  color: var(--muted);
-  margin: 0 0 12px;
-}
-
-.formrow {
-  display: flex;
-  gap: 10px;
+  align-items: center;
   flex-wrap: wrap;
-  align-items: flex-end;
 }
 
-.formrow input,
-.formrow select {
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 9px 11px;
-  color: var(--text);
+.filedrop {
+  flex: 1;
+  min-width: 240px;
+  position: relative;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 18px 16px;
+  cursor: pointer;
+  background: var(--surface-2);
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.filedrop:hover {
+  border-color: var(--accent);
+  background: var(--accent-weak);
+}
+
+.filedrop input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.filedrop-label {
+  color: var(--text-2);
   font-size: 14px;
-  min-width: 120px;
 }
 
-.formrow input::placeholder {
-  color: var(--muted);
+/* ------------------------------------------------------------------ misc -- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
 }
 
-.datefield {
+.info {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.info-label {
   font-size: 11px;
   color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.info-value {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+details pre {
+  overflow-x: auto;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  line-height: 1.55;
+  font-family: var(--mono);
+}
+
+summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/*
+ * The unassigned queue carries free-text taken off the contract note — broker
+ * names like "Some Broking Services Pvt. Ltd." and full client names. With the
+ * global `white-space: nowrap` on cells those columns cannot wrap, so the table
+ * grows past its card and the Assign control — the whole point of the table —
+ * scrolls out of sight. Let the text columns wrap instead, and keep the control
+ * itself on one line so the button stays beside its dropdown.
+ */
+.assign-table td,
+.assign-table th {
+  white-space: normal;
+}
+
+.assign-table td.assign-cell {
+  white-space: nowrap;
+  width: 1%;
+}
+
+.assign-table .formrow {
+  flex-wrap: nowrap;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.assign-table .formrow select {
+  min-width: 0;
+  max-width: 190px;
+}
+
+/*
+ * Reconciliation and corporate actions run to nine columns and the verdict is
+ * the last of them. At the default cell padding the table runs past its card and
+ * `Status` — the one column a reader is guaranteed to want — is the first thing
+ * to scroll out of sight. Tighten the spacing rather than drop a column: on a
+ * page whose whole job is to show its working, every number it used has to be
+ * visible.
+ */
+.recon-table th,
+.recon-table td {
+  padding: 8px 9px;
+}
+
+.recon-table td.status-cell {
+  white-space: nowrap;
+  width: 1%;
+}
+
+/* The expanded detail under a row: prose and bullets, so left-align it. */
+.recon-detail {
+  text-align: left;
+}
+
+.recon-detail ul {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+
+/*
+ * A width limit that a table actually honours.
+ *
+ * `max-width` on a `td` is ignored under the default `table-layout: auto` — the
+ * browser sizes the column to its content regardless, which is how one long
+ * description column pushed the corporate-actions table 240px past its card. On
+ * a block element inside the cell it is obeyed.
+ */
+.clamp {
+  max-width: 190px;
+  white-space: normal;
 }
 
 /* Long error messages inside table cells: wrap instead of stretching the
@@ -367,4 +827,202 @@ summary {
   max-width: 420px;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  .appbar-inner {
+    gap: 12px;
+    padding: 0 16px;
+  }
+
+  .brand {
+    display: none;
+  }
+
+  .container {
+    padding: 24px 16px 72px;
+  }
+}
+
+/* -------------------------------------------------------------- dashboard -- */
+
+/*
+ * Two columns on a wide window, one on a narrow one. The left column carries
+ * the things you act on, the right the things you glance at.
+ */
+.dash-cols {
+  display: grid;
+  /* 1.4fr rather than 1.55: the right column was coming out at 380px, which is
+     too narrow for anything with columns of its own. */
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .dash-cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The hero figure: one number that is the answer to "how am I doing". */
+.hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 18px;
+  margin-bottom: 4px;
+}
+
+.hero-value {
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+.hero-note {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* An allocation row: name, a proportion bar, and the amount. */
+.alloc {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  align-items: baseline;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.alloc:last-child {
+  border-bottom: none;
+}
+
+.alloc-name {
+  font-size: 13.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alloc-value {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.bar {
+  grid-column: 1 / -1;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+/*
+ * The attention list. Each row is something to go and do, so each is a link and
+ * the whole row is the target — a five-word phrase is a poor click area.
+ */
+.todo {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  background: var(--surface);
+  color: inherit;
+}
+
+.todo:last-child {
+  margin-bottom: 0;
+}
+
+.todo:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+  text-decoration: none;
+}
+
+.todo-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+  margin-top: 7px;
+  background: var(--muted);
+}
+
+.todo.warn .todo-dot {
+  background: var(--amber);
+}
+
+.todo.bad .todo-dot {
+  background: var(--red);
+}
+
+.todo.good .todo-dot {
+  background: var(--green);
+}
+
+.todo-text {
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.todo-text b {
+  font-weight: 650;
+}
+
+.todo-text span {
+  color: var(--muted);
+  display: block;
+  font-size: 12.5px;
+}
+
+/* Quick actions: a row of equal, obvious things to do next. */
+.actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.action {
+  display: block;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: inherit;
+}
+
+.action:hover {
+  border-color: var(--accent);
+  background: var(--accent-weak);
+  text-decoration: none;
+}
+
+.action b {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 650;
+  margin-bottom: 2px;
+}
+
+.action span {
+  font-size: 12.5px;
+  color: var(--muted);
 }

@@ -21,6 +21,7 @@ interface Row {
   trade_date?: string | null;
   contract_note_number?: string | null;
   trades?: number;
+  account_id?: string | null;
   movedTo?: string | null;
   error?: string;
 }
@@ -176,11 +177,6 @@ export default function ImportPage() {
     return (
       <main className="container">
         <div className="header">
-          <nav className="nav">
-            <a href="/">← Upload</a>
-            <a href="/portfolio">Portfolio &amp; P&amp;L</a>
-            <span className="nav-active">Folder Import</span>
-          </nav>
           <h1>Folder Import</h1>
         </div>
         <div className="card muted">
@@ -213,11 +209,6 @@ export default function ImportPage() {
   return (
     <main className="container">
       <div className="header">
-        <nav className="nav">
-          <a href="/">← Upload</a>
-          <a href="/portfolio">Portfolio &amp; P&amp;L</a>
-          <span className="nav-active">Folder Import</span>
-        </nav>
         <h1>Folder Import</h1>
         <p className="subtitle">
           Drop contract note PDFs into <span className="mono">inbox/</span> and import them
@@ -351,7 +342,14 @@ export default function ImportPage() {
                     <td className="num">{r.status === "saved" ? r.trades : "—"}</td>
                     <td>
                       {r.status === "processing" && <span className="muted">extracting…</span>}
-                      {r.status === "saved" && <span className="tag pos">saved</span>}
+                      {r.status === "saved" && (
+                        <>
+                          <span className="tag pos">saved</span>
+                          {!r.account_id && (
+                            <span className="tag">needs an account</span>
+                          )}
+                        </>
+                      )}
                       {r.status === "duplicate" && <span className="tag">already imported</span>}
                       {r.status === "failed" && (
                         <>
