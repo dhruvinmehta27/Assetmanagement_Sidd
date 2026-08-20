@@ -7,13 +7,13 @@ import { usePathname } from "next/navigation";
  * The application bar: identity, navigation, and the theme control.
  *
  * The nav used to be copy-pasted into all six pages, which meant every new page
- * was seven edits and one of them was always missed. It lives here now; the
- * pages keep their own `<nav>` markup for the moment but `globals.css` hides it,
- * so nothing renders twice and no page had to change to get this.
+ * was seven edits and one of them was always missed. It is defined once here,
+ * and adding a page is one line in LINKS.
  */
 
 const LINKS = [
-  { href: "/", label: "Upload" },
+  { href: "/", label: "Dashboard" },
+  { href: "/upload", label: "Upload" },
   { href: "/import", label: "Folder Import" },
   { href: "/accounts", label: "Accounts" },
   { href: "/reconcile", label: "Reconcile" },
