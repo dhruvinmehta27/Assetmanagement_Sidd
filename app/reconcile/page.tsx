@@ -109,14 +109,6 @@ export default function ReconcilePage() {
   return (
     <main className="container">
       <header className="header">
-        <nav className="nav">
-          <a href="/">← Upload</a>
-          <a href="/import">Folder Import</a>
-          <a href="/accounts">Accounts</a>
-          <a href="/corporate-actions">Corporate Actions</a>
-          <a href="/portfolio">Portfolio &amp; P&amp;L</a>
-          <span className="nav-active">Reconcile</span>
-        </nav>
         <h1>Reconcile</h1>
         <p className="subtitle">
           Each note is checked against itself: gross traded value less charges

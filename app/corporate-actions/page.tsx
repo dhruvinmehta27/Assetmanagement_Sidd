@@ -172,14 +172,6 @@ export default function CorporateActionsPage() {
   return (
     <main className="container">
       <header className="header">
-        <nav className="nav">
-          <a href="/">← Upload</a>
-          <a href="/import">Folder Import</a>
-          <a href="/accounts">Accounts</a>
-          <a href="/reconcile">Reconcile</a>
-          <a href="/portfolio">Portfolio &amp; P&amp;L</a>
-          <span className="nav-active">Corporate Actions</span>
-        </nav>
         <h1>Corporate Actions</h1>
         <p className="subtitle">
           Splits, bonuses, demergers, mergers, rights, buybacks, delistings and the

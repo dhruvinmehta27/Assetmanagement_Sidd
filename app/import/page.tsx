@@ -177,14 +177,6 @@ export default function ImportPage() {
     return (
       <main className="container">
         <div className="header">
-          <nav className="nav">
-            <a href="/">← Upload</a>
-            <a href="/portfolio">Portfolio &amp; P&amp;L</a>
-            <a href="/accounts">Accounts</a>
-            <a href="/reconcile">Reconcile</a>
-            <a href="/corporate-actions">Corporate Actions</a>
-            <span className="nav-active">Folder Import</span>
-          </nav>
           <h1>Folder Import</h1>
         </div>
         <div className="card muted">
@@ -217,14 +209,6 @@ export default function ImportPage() {
   return (
     <main className="container">
       <div className="header">
-        <nav className="nav">
-          <a href="/">← Upload</a>
-          <a href="/portfolio">Portfolio &amp; P&amp;L</a>
-          <a href="/accounts">Accounts</a>
-            <a href="/reconcile">Reconcile</a>
-            <a href="/corporate-actions">Corporate Actions</a>
-            <span className="nav-active">Folder Import</span>
-        </nav>
         <h1>Folder Import</h1>
         <p className="subtitle">
           Drop contract note PDFs into <span className="mono">inbox/</span> and import them

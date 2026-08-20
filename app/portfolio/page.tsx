@@ -87,14 +87,6 @@ export default function PortfolioPage() {
   return (
     <main className="container">
       <header className="header">
-        <nav className="nav">
-          <a href="/">← Upload</a>
-          <a href="/import">Folder Import</a>
-          <a href="/accounts">Accounts</a>
-          <a href="/reconcile">Reconcile</a>
-          <a href="/corporate-actions">Corporate Actions</a>
-          <span className="nav-active">Portfolio &amp; P&amp;L</span>
-        </nav>
         <h1>Portfolio &amp; P&amp;L</h1>
         <p className="subtitle">
           Holdings, realized profit/loss by Indian financial year, and dividends

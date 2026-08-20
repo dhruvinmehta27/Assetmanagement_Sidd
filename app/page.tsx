@@ -161,14 +161,6 @@ export default function Home() {
   return (
     <main className="container">
       <header className="header">
-        <nav className="nav">
-          <span className="nav-active">Upload</span>
-          <a href="/import">Folder Import</a>
-          <a href="/accounts">Accounts</a>
-          <a href="/reconcile">Reconcile</a>
-          <a href="/corporate-actions">Corporate Actions</a>
-          <a href="/portfolio">Portfolio &amp; P&amp;L →</a>
-        </nav>
         <h1>Contract Note Extractor</h1>
         <p className="subtitle">
           Upload one or more broker contract note PDFs — the app extracts every

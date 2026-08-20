@@ -75,14 +75,6 @@ export default function AccountsPage() {
   return (
     <main className="container">
       <header className="header">
-        <nav className="nav">
-          <a href="/">← Upload</a>
-          <a href="/import">Folder Import</a>
-          <a href="/reconcile">Reconcile</a>
-          <a href="/corporate-actions">Corporate Actions</a>
-          <a href="/portfolio">Portfolio &amp; P&amp;L</a>
-          <span className="nav-active">Accounts</span>
-        </nav>
         <h1>Accounts</h1>
         <p className="subtitle">
           One account per person or entity, identified by PAN. Every broker that
