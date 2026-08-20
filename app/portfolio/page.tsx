@@ -325,6 +325,7 @@ export default function PortfolioPage() {
                 </tbody>
               </table>
             </div>
+            <FindDividends account={account} onSaved={load} />
             <DividendForm
               onSaved={load}
               accounts={data.accounts ?? []}
@@ -492,5 +493,185 @@ function DividendForm({
       </div>
       {msg && <span className="savestate">{msg}</span>}
     </form>
+  );
+}
+
+/**
+ * Table 5 of the spec, filled from the exchange feed.
+ *
+ * The corporate-action lookup already downloads these rows and throws them
+ * away. What it cannot supply is the quantity held on the ex-date, which is why
+ * this asks the server rather than the feed: that number comes from the FIFO
+ * engine run as at the ex-date, so it is already adjusted for any bonus or split
+ * that had happened by then.
+ *
+ * Same rule as everywhere else here — proposals, accepted one at a time. TDS is
+ * not published by the exchange, so the amounts are gross; Form 26AS is the
+ * authority for what was withheld.
+ */
+function FindDividends({ account, onSaved }: { account: string; onSaved: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<any>(null);
+  const [heldOnly, setHeldOnly] = useState(true);
+
+  async function search() {
+    setBusy(true);
+    setError(null);
+    try {
+      const qs = account ? `?accounts=${encodeURIComponent(account)}` : "";
+      const res = await fetch(`/api/dividends/discover${qs}`, { cache: "no-store" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Lookup failed.");
+      setData(json);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function accept(c: any) {
+    // A dividend belongs to a person, and the store refuses one without an
+    // owner — so a specific account has to be chosen before this can be saved.
+    if (!account) {
+      setError("Choose a single account above first — a dividend has to belong to someone.");
+      return;
+    }
+    setSaving(c.isin + c.ex_date);
+    setError(null);
+    try {
+      const res = await fetch("/api/dividends", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          isin: c.isin,
+          account_id: account,
+          security_name: c.security_name,
+          symbol: c.symbol,
+          ex_date: c.ex_date,
+          amount_per_share: c.amount_per_share,
+          quantity: c.quantity,
+          gross_amount: c.gross_amount,
+          source: "nse",
+          notes: `From NSE: "${c.subject}"`,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Could not save.");
+      setData((d: any) => ({
+        ...d,
+        candidates: d.candidates.map((x: any) => (x === c ? { ...x, already_recorded: true } : x)),
+      }));
+      onSaved();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  const shown = data
+    ? data.candidates.filter((c: any) => (heldOnly ? c.quantity > 0 : true))
+    : [];
+
+  return (
+    <div className="entryform">
+      <h3>Find dividends from the exchange</h3>
+      <p className="hint">
+        NSE publishes an amount per share and an ex-date; the quantity you held on
+        that date comes from your own trades, adjusted for any bonus or split
+        before it. This is the only part of the app that goes to the internet
+        apart from reading a PDF.
+      </p>
+
+      {error && <p className="footnote neg">⚠️ {error}</p>}
+
+      <div className="formrow">
+        <button className="btn" type="button" onClick={search} disabled={busy}>
+          {busy ? "Looking…" : "Look up dividends"}
+        </button>
+        {data && (
+          <label className="datefield">
+            Show
+            <select
+              value={heldOnly ? "held" : "all"}
+              onChange={(e) => setHeldOnly(e.target.value === "held")}
+            >
+              <option value="held">Only where you held shares ({data.counts.held})</option>
+              <option value="all">Everything found ({data.counts.total})</option>
+            </select>
+          </label>
+        )}
+      </div>
+
+      {data && (
+        <>
+          <p className="footnote">
+            {data.counts.held} dividend{data.counts.held === 1 ? "" : "s"} on securities
+            you held, worth <strong>₹{money(data.counts.gross)}</strong> gross, across{" "}
+            {data.isins} traded ISINs. {data.note}
+          </p>
+          <div className="table-wrap">
+            <table className="recon-table">
+              <thead>
+                <tr>
+                  <th>Security</th>
+                  <th>Ex-date</th>
+                  <th>What NSE published</th>
+                  <th className="num">Per share</th>
+                  <th className="num">Held</th>
+                  <th className="num">Gross</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((c: any) => (
+                  <tr key={c.isin + c.ex_date + c.subject}>
+                    <td>
+                      <div className="clamp">
+                        {c.security_name || c.isin}
+                        <div className="mono">{c.isin}</div>
+                      </div>
+                    </td>
+                    <td>{c.ex_date}</td>
+                    <td className="footnote recon-detail">
+                      <div className="clamp">{c.subject}</div>
+                    </td>
+                    <td className="num">{money(c.amount_per_share)}</td>
+                    <td className="num">{c.quantity}</td>
+                    <td className="num">{money(c.gross_amount)}</td>
+                    <td className="status-cell">
+                      {c.already_recorded ? (
+                        <span className="badge">recorded</span>
+                      ) : c.quantity > 0 ? (
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() => accept(c)}
+                          disabled={saving === c.isin + c.ex_date}
+                        >
+                          {saving === c.isin + c.ex_date ? "…" : "Add"}
+                        </button>
+                      ) : (
+                        <span className="muted footnote">not held</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {shown.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="muted">
+                      Nothing found for your ISINs in this period.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
   );
 }

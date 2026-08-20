@@ -132,8 +132,22 @@ export interface ActionEffect {
 
 export interface FYPnl {
   financial_year: string;
+  /** Net of profits and losses in that bucket. */
   short_term_gain: number;
   long_term_gain: number;
+  /**
+   * Gross profit and gross loss, kept apart.
+   *
+   * Tax law does not work on the net figure: a short-term loss may be set off
+   * against long-term gains, a long-term loss may not be set off against
+   * short-term gains, and the ₹1.25 lakh exemption applies to long-term gains
+   * only. All of that needs the two sides separately, and netting them first
+   * throws the information away. Losses are positive magnitudes.
+   */
+  short_term_profit: number;
+  short_term_loss: number;
+  long_term_profit: number;
+  long_term_loss: number;
   total_gain: number;
   proceeds: number;
   cost: number;
@@ -597,7 +611,16 @@ function applyDemergerGroup(
  */
 export function computePortfolio(
   trades: TradeRow[],
-  actions: CorporateActionRow[]
+  actions: CorporateActionRow[],
+  /**
+   * Stop after this ISO date, so the result is the book as it stood then.
+   *
+   * Needed to answer "how many shares did I hold on the ex-date", which is what
+   * turns a published dividend-per-share into an amount received. It runs the
+   * same engine rather than summing buys and sells, so the answer is adjusted
+   * for any bonus or split that had already happened by then.
+   */
+  asOf?: string
 ): { holdings: Holding[]; realized: RealizedEvent[]; effects: ActionEffect[] } {
   const events: Ev[] = [];
 
@@ -638,6 +661,15 @@ export function computePortfolio(
       continue;
     }
     events.push({ kind: "ACTION", date: a.ex_date, actions: [a], key });
+  }
+
+  // Only when asked. Written as `const kept = asOf ? filter(...) : events`
+  // first, which aliases the same array when asOf is absent — emptying it then
+  // emptied the source too and every figure in the app came out zero.
+  if (asOf) {
+    const kept = events.filter((e) => e.date <= asOf);
+    events.length = 0;
+    events.push(...kept);
   }
 
   // Stable sort, so two actions on the same security and date stay in the order
@@ -712,6 +744,10 @@ export function pnlByFinancialYear(realized: RealizedEvent[]): FYPnl[] {
         financial_year: r.financial_year,
         short_term_gain: 0,
         long_term_gain: 0,
+        short_term_profit: 0,
+        short_term_loss: 0,
+        long_term_profit: 0,
+        long_term_loss: 0,
         total_gain: 0,
         proceeds: 0,
         cost: 0,
@@ -719,8 +755,15 @@ export function pnlByFinancialYear(realized: RealizedEvent[]): FYPnl[] {
       };
       map.set(r.financial_year, row);
     }
-    if (r.term === "LONG") row.long_term_gain += r.gain;
-    else row.short_term_gain += r.gain;
+    if (r.term === "LONG") {
+      row.long_term_gain += r.gain;
+      if (r.gain >= 0) row.long_term_profit += r.gain;
+      else row.long_term_loss += -r.gain;
+    } else {
+      row.short_term_gain += r.gain;
+      if (r.gain >= 0) row.short_term_profit += r.gain;
+      else row.short_term_loss += -r.gain;
+    }
     row.total_gain += r.gain;
     row.proceeds += r.proceeds;
     row.cost += r.cost;
@@ -730,6 +773,10 @@ export function pnlByFinancialYear(realized: RealizedEvent[]): FYPnl[] {
     ...r,
     short_term_gain: round(r.short_term_gain),
     long_term_gain: round(r.long_term_gain),
+    short_term_profit: round(r.short_term_profit),
+    short_term_loss: round(r.short_term_loss),
+    long_term_profit: round(r.long_term_profit),
+    long_term_loss: round(r.long_term_loss),
     total_gain: round(r.total_gain),
     proceeds: round(r.proceeds),
     cost: round(r.cost),

@@ -259,6 +259,40 @@ export function parseSubject(subject: string, faceValue: number | null): ParsedA
   return null;
 }
 
+/**
+ * A dividend, out of the same feed the corporate-action lookup already pulls.
+ *
+ * `parseSubject` throws these away deliberately — a dividend is not a corporate
+ * action on a holding and belongs in its own table. But the feed states the
+ * amount per share and the ex-date, which together with the quantity held on
+ * that date is the whole of a dividend receipt. Discarding it and then asking
+ * someone to type it in by hand would be perverse.
+ *
+ * Real forms in the corpus:
+ *   "Dividend - Re 0.58 Per Share"
+ *   "Interim Dividend - Rs 0.50 Per Share"
+ *   "Annual General Meeting/Dividend - Re 0.80 Per Share"
+ *   "Annual General Meeting/Dividend - Rs  Per Share"   <- no amount at all
+ *
+ * Returns null for anything that is not a dividend, and for the ones that
+ * announce a dividend without saying how much.
+ */
+export function parseDividend(subject: string): { amount_per_share: number; kind: string } | null {
+  const s = (subject || "").trim();
+  if (!/dividend/i.test(s)) return null;
+  // Unit trusts distribute rather than pay a dividend, and their notices mix
+  // interest and capital repayment into one figure — not the same thing.
+  if (/^distribution\b|per unit/i.test(s)) return null;
+
+  const m = s.match(/(?:rs|re)\.?\s*(\d+(?:\.\d+)?)\s*(?:\/-)?\s*per\s*share/i);
+  if (!m) return null;
+  const amount = Number(m[1]);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+
+  const kind = /interim/i.test(s) ? "Interim" : /final/i.test(s) ? "Final" : "Dividend";
+  return { amount_per_share: amount, kind };
+}
+
 async function getJson(url: string, referer: string, timeoutMs = 45_000): Promise<any> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);

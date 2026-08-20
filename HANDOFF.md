@@ -35,6 +35,50 @@ extraction errors — see below.
 
 ---
 
+## P&L, tax and dividends — built 20 Aug
+
+**Table 2 of the spec is now built except the unrealised rows.** Realised gains
+split into profit and loss, losses set off, the ₹1.25 lakh exemption applied,
+tax and cess computed, and the cost of trading reported. `app/lib/tax.ts` is
+pure arithmetic over what `pnlByFinancialYear` already produced.
+
+It reproduces every figure in the spreadsheet's own worked example (₹5,00,000
+LTCG, ₹1,00,000 STCG, ₹50,000 LTCL, ₹25,000 STCL → taxable ₹3,25,000 / ₹75,000,
+tax ₹42,250 / ₹15,600) in both set-off modes. On the real data: 2024-25 shows
+₹13,577.75 short-term profit and ₹65.33 short-term loss — the split netting had
+been throwing away — and ₹2,810.58 of tax. Brokerage ₹2,665.70 and other
+charges ₹3,483.70 cross-check exactly against the raw note columns.
+
+**Rates are configuration, not constants.** `RATES_BY_YEAR` carries the
+pre-23-July-2024 regime; a year absent from it uses the current one. Rates have
+changed twice recently and one compiled into a formula is one nobody finds.
+
+**The spec and the law disagree on loss set-off, so both are offered.** Table 2
+computes `=A-C-E` and `=B-D`, netting within each bucket. Under s.74 a
+short-term loss may also be set off against long-term gains. The page has a
+toggle and states the difference in rupees when there is one — in a year with
+short-term losses and long-term gains the spreadsheet overstates the tax due.
+
+**Dividends now come from the exchange (Table 5).** The corporate-action lookup
+was already downloading them and throwing them away. The missing half was the
+quantity held on the ex-date, which is not a matter of adding up buys and sells —
+so it runs the FIFO engine *as at* that date via a new `asOf` argument, and is
+corporate-action adjusted by construction. On the real data it found **22
+dividends worth ₹80,311.35 gross**, none of them recorded, and the proof it is
+working is Motherson Sumi: 500 shares on 2025-06-23 and 750 on 2026-07-14,
+because the bonus ex-date falls between them.
+
+TDS is not published by the exchange, so the amounts are gross; Form 26AS
+remains the authority for what was withheld.
+
+**One bug worth remembering.** The `asOf` filter was written as
+`const kept = asOf ? events.filter(...) : events`, which aliases the same array
+when `asOf` is absent — `events.length = 0` then emptied the source and every
+figure in the app came out zero. Caught immediately because the statement was
+run against real data, where "0 lots closed" was obviously wrong.
+
+---
+
 ## Reading demerger terms out of company filings — built 20 Aug
 
 The exchange feed says a demerger happened and nothing more. The three numbers

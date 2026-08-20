@@ -135,6 +135,8 @@ export interface StoredNoteWithTrades {
 
 export interface StoredDividend {
   id: string;
+  /** Whose dividend it is. The column has always existed; the type omitted it. */
+  account_id: string | null;
   isin: string;
   symbol: string | null;
   security_name: string | null;

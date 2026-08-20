@@ -18,7 +18,8 @@ const LINKS = [
   { href: "/accounts", label: "Accounts" },
   { href: "/reconcile", label: "Reconcile" },
   { href: "/corporate-actions", label: "Corporate Actions" },
-  { href: "/portfolio", label: "Portfolio & P&L" },
+  { href: "/portfolio", label: "Portfolio" },
+  { href: "/pnl", label: "P&L & Tax" },
 ];
 
 type Choice = "light" | "dark" | "system";
